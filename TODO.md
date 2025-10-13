@@ -1,0 +1,3 @@
+- [x] Add LoginRequest schema to backend/app/schemas/auth.py
+- [x] Update login endpoint in backend/app/api/api_v1/endpoints/auth.py to use LoginRequest
+- [ ] Test the login functionality
