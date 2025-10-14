@@ -235,6 +235,7 @@ const SimpleAIChat = () => {
           {[
             "Show me the billing summary",
             "Find patient John Smith",
+            "Find invoice CLINIC-202510-0038",
             "Show recent activity",
             "Set the theme to blue"
           ].map((suggestion) => (

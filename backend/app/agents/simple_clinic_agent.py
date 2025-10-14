@@ -166,6 +166,63 @@ def set_theme_color(color: str) -> Dict[str, str]:
         "color": color
     }
 
+# Tool to get invoice by invoice number
+def get_invoice_by_number(invoice_number: str) -> Dict[str, Any]:
+    """Get invoice information by invoice number (e.g., CLINIC-202510-0038)."""
+    db = next(get_db())
+    try:
+        invoice = db.query(Invoice).filter(Invoice.invoice_number == invoice_number).first()
+        if not invoice:
+            return {"error": f"Invoice with number {invoice_number} not found"}
+        
+        # Get related patient information
+        patient = db.query(Patient).filter(Patient.id == invoice.patient_id).first()
+        
+        # Get invoice items
+        from app.models.invoice import InvoiceItem
+        items = db.query(InvoiceItem).filter(InvoiceItem.invoice_id == invoice.id).all()
+        
+        # Get related payments
+        payments = db.query(Payment).filter(Payment.invoice_id == invoice.id).all()
+        
+        return {
+            "invoice": {
+                "id": str(invoice.id),
+                "invoice_number": invoice.invoice_number,
+                "patient_id": str(invoice.patient_id),
+                "patient_name": patient.name if patient else "Unknown",
+                "patient_email": patient.email if patient else "Unknown",
+                "total_amount": float(invoice.total_amount_cents / 100),  # Convert cents to dollars
+                "currency": invoice.currency,
+                "status": invoice.status,
+                "payment_method": invoice.payment_method,
+                "issued_at": invoice.issued_at.isoformat() if invoice.issued_at else None,
+                "due_date": invoice.due_date.isoformat() if invoice.due_date else None,
+                "created_at": invoice.created_at.isoformat() if invoice.created_at else None
+            },
+            "items": [
+                {
+                    "id": str(item.id),
+                    "description": item.description,
+                    "quantity": item.quantity,
+                    "unit_price": float(item.unit_price_cents / 100),
+                    "tax": float(item.tax_cents / 100),
+                    "total": float((item.unit_price_cents * item.quantity + item.tax_cents) / 100)
+                } for item in items
+            ],
+            "payments": [
+                {
+                    "id": str(payment.id),
+                    "amount": float(payment.amount_cents / 100),
+                    "status": payment.status,
+                    "payment_method": payment.payment_method,
+                    "received_at": payment.received_at.isoformat() if payment.received_at else None
+                } for payment in payments
+            ]
+        }
+    finally:
+        db.close()
+
 # Tool to get weather (example from the tutorial)
 def get_weather(location: str) -> Dict[str, Any]:
     """Get weather information for a given location."""
@@ -303,6 +360,39 @@ async def chat_with_agent(request: Request):
             
             return {"message": response, "data": {"theme": color if 'color' in locals() else None}}
         
+        elif "invoice" in user_input and ("CLINIC-" in user_input or "clinic-" in user_input):
+            # Extract invoice number from the message
+            import re
+            invoice_match = re.search(r'CLINIC-\d{6}-\d{4}', user_input.upper())
+            if invoice_match:
+                invoice_number = invoice_match.group()
+                invoice_data = get_invoice_by_number(invoice_number)
+                if "error" in invoice_data:
+                    response = f"Sorry, {invoice_data['error']}"
+                else:
+                    invoice = invoice_data["invoice"]
+                    response = f"""Invoice Details for {invoice_number}:
+- Patient: {invoice['patient_name']} ({invoice['patient_email']})
+- Amount: ${invoice['total_amount']:.2f} {invoice['currency']}
+- Status: {invoice['status']}
+- Created: {invoice['created_at']}
+- Due Date: {invoice['due_date'] or 'Not set'}
+
+Items:"""
+                    for item in invoice_data["items"]:
+                        response += f"\n  - {item['description']}: {item['quantity']} x ${item['unit_price']:.2f} = ${item['total']:.2f}"
+                    
+                    if invoice_data["payments"]:
+                        response += "\n\nPayments:"
+                        for payment in invoice_data["payments"]:
+                            response += f"\n  - ${payment['amount']:.2f} ({payment['status']}) - {payment['received_at'] or 'No date'}"
+                    else:
+                        response += "\n\nNo payments recorded."
+            else:
+                response = "Please provide a valid invoice number in the format CLINIC-YYYYMM-XXXX. Example: 'Find invoice CLINIC-202510-0038'"
+            
+            return {"message": response, "data": invoice_data if 'invoice_data' in locals() else None}
+        
         elif "weather" in user_input:
             # Extract location from the message
             parts = user_input.split()
@@ -330,6 +420,7 @@ async def chat_with_agent(request: Request):
 **Billing Operations:**
 - "Show me the billing summary" - View revenue and outstanding amounts
 - "Show recent activity" - See recent invoices and payments
+- "Find invoice CLINIC-202510-0038" - Search for invoices by invoice number
 
 **UI Customization:**
 - "Set the theme to [color]" - Change the interface color
@@ -375,7 +466,46 @@ async def chat_any_format(request: Request):
         user_input = text.lower()
         
         # Process the same way as the main chat endpoint
-        if "billing summary" in user_input or "show me the billing" in user_input or "billing history" in user_input:
+        if "invoice" in user_input and ("CLINIC-" in user_input or "clinic-" in user_input):
+            # Extract invoice number from the message
+            import re
+            invoice_match = re.search(r'CLINIC-\d{6}-\d{4}', user_input.upper())
+            if invoice_match:
+                invoice_number = invoice_match.group()
+                invoice_data = get_invoice_by_number(invoice_number)
+                if "error" in invoice_data:
+                    response_content = f"Sorry, {invoice_data['error']}"
+                else:
+                    invoice = invoice_data["invoice"]
+                    response_content = f"""Invoice Details for {invoice_number}:
+- Patient: {invoice['patient_name']} ({invoice['patient_email']})
+- Amount: ${invoice['total_amount']:.2f} {invoice['currency']}
+- Status: {invoice['status']}
+- Created: {invoice['created_at']}
+- Due Date: {invoice['due_date'] or 'Not set'}
+
+Items:"""
+                    for item in invoice_data["items"]:
+                        response_content += f"\n  - {item['description']}: {item['quantity']} x ${item['unit_price']:.2f} = ${item['total']:.2f}"
+                    
+                    if invoice_data["payments"]:
+                        response_content += "\n\nPayments:"
+                        for payment in invoice_data["payments"]:
+                            response_content += f"\n  - ${payment['amount']:.2f} ({payment['status']}) - {payment['received_at'] or 'No date'}"
+                    else:
+                        response_content += "\n\nNo payments recorded."
+            else:
+                response_content = "Please provide a valid invoice number in the format CLINIC-YYYYMM-XXXX. Example: 'Find invoice CLINIC-202510-0038'"
+            
+            # Return in multiple formats to ensure compatibility
+            return {
+                "message": response_content,
+                "data": invoice_data if 'invoice_data' in locals() else None,
+                "content": response_content,
+                "text": response_content,
+                "response": response_content
+            }
+        elif "billing summary" in user_input or "show me the billing" in user_input or "billing history" in user_input:
             summary = get_billing_summary()
             response = f"""Billing Summary:
 - Total Patients: {summary['total_patients']}
@@ -462,7 +592,37 @@ async def copilot_graphql_endpoint(request: Request):
             user_input = user_message.lower()
             
             # Process the request
-            if "billing summary" in user_input or "show me the billing" in user_input or "billing history" in user_input:
+            if "invoice" in user_input and ("CLINIC-" in user_input or "clinic-" in user_input):
+                # Extract invoice number from the message
+                import re
+                invoice_match = re.search(r'CLINIC-\d{6}-\d{4}', user_input.upper())
+                if invoice_match:
+                    invoice_number = invoice_match.group()
+                    invoice_data = get_invoice_by_number(invoice_number)
+                    if "error" in invoice_data:
+                        response_content = f"Sorry, {invoice_data['error']}"
+                    else:
+                        invoice = invoice_data["invoice"]
+                        response_content = f"""Invoice Details for {invoice_number}:
+- Patient: {invoice['patient_name']} ({invoice['patient_email']})
+- Amount: ${invoice['total_amount']:.2f} {invoice['currency']}
+- Status: {invoice['status']}
+- Created: {invoice['created_at']}
+- Due Date: {invoice['due_date'] or 'Not set'}
+
+Items:"""
+                        for item in invoice_data["items"]:
+                            response_content += f"\n  - {item['description']}: {item['quantity']} x ${item['unit_price']:.2f} = ${item['total']:.2f}"
+                        
+                        if invoice_data["payments"]:
+                            response_content += "\n\nPayments:"
+                            for payment in invoice_data["payments"]:
+                                response_content += f"\n  - ${payment['amount']:.2f} ({payment['status']}) - {payment['received_at'] or 'No date'}"
+                        else:
+                            response_content += "\n\nNo payments recorded."
+                else:
+                    response_content = "Please provide a valid invoice number in the format CLINIC-YYYYMM-XXXX. Example: 'Find invoice CLINIC-202510-0038'"
+            elif "billing summary" in user_input or "show me the billing" in user_input or "billing history" in user_input:
                 summary = get_billing_summary()
                 response_content = f"""Billing Summary:
 - Total Patients: {summary['total_patients']}
@@ -594,6 +754,11 @@ async def get_recent_activity_endpoint(limit: int = 10):
 async def set_theme_endpoint(color: str):
     """Set theme color."""
     return set_theme_color(color)
+
+@agent_app.get("/invoice/{invoice_number}")
+async def get_invoice_endpoint(invoice_number: str):
+    """Get invoice information by invoice number."""
+    return get_invoice_by_number(invoice_number)
 
 @agent_app.get("/weather/{location}")
 async def get_weather_endpoint(location: str):

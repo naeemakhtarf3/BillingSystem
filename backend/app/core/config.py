@@ -19,7 +19,7 @@ class Settings:
         # relative path (e.g. sqlite:///./clinic_billing.db) normalize it to an
         # absolute path inside the backend directory so all scripts use the same
         # file regardless of the current working directory.
-        env_db_url = os.getenv("DATABASE_URL")
+        env_db_url = "postgresql://neondb_owner:npg_Xzxog43QnSfN@ep-lively-lab-admvsm99-pooler.c-2.us-east-1.aws.neon.tech/billingdb1?sslmode=require&channel_binding=require"
         if env_db_url:
             if env_db_url.startswith("sqlite:///"):
                 # Extract the path portion after sqlite:///
@@ -49,7 +49,7 @@ class Settings:
         self.APP_VERSION: str = os.getenv("APP_VERSION", "1.0.0")
         self.DEBUG: bool = os.getenv("DEBUG", "True").lower() == "true"
         self.API_V1_STR: str = os.getenv("API_V1_STR", "/api/v1")
-        self.CORS_ORIGINS: List[str] = [x.strip() for x in "http://localhost:5173,http://localhost:5174,http://localhost:8080,http://localhost:3001,http://127.0.0.1:5174,http://127.0.0.1:3000".split(",")]
+        self.CORS_ORIGINS: List[str] = [x.strip() for x in "https://billingsystem-gm9s.onrender.com, http://localhost:5173,http://localhost:5174,http://localhost:8080,http://localhost:3001,http://127.0.0.1:5174,http://127.0.0.1:3000".split(",")]
 
         # Email Configuration
         self.MAIL_PROVIDER: str = os.getenv("MAIL_PROVIDER", "smtp")

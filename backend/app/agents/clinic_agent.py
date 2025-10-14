@@ -7,7 +7,7 @@ import json
 
 # Import your existing models and services
 from app.models.patient import Patient
-from app.models.invoice import Invoice
+from app.models.invoice import Invoice, InvoiceItem
 from app.models.payment import Payment
 from app.db.session import get_db
 from sqlalchemy.orm import Session as SQLSession
@@ -61,7 +61,7 @@ def get_patient_info(patient_id: int) -> Dict[str, Any]:
     finally:
         db.close()
 
-# Tool to search patients by name or email
+# Tool to search patients by name or email test
 def search_patients(query: str) -> List[Dict[str, Any]]:
     """Search for patients by name or email."""
     db = next(get_db())
@@ -164,6 +164,62 @@ def set_theme_color(color: str) -> Dict[str, str]:
         "color": color
     }
 
+# Tool to get invoice by invoice number
+def get_invoice_by_number(invoice_number: str) -> Dict[str, Any]:
+    """Get invoice information by invoice number (e.g., CLINIC-202510-0038)."""
+    db = next(get_db())
+    try:
+        invoice = db.query(Invoice).filter(Invoice.invoice_number == invoice_number).first()
+        if not invoice:
+            return {"error": f"Invoice with number {invoice_number} not found"}
+        
+        # Get related patient information
+        patient = db.query(Patient).filter(Patient.id == invoice.patient_id).first()
+        
+        # Get invoice items
+        items = db.query(InvoiceItem).filter(InvoiceItem.invoice_id == invoice.id).all()
+        
+        # Get related payments
+        payments = db.query(Payment).filter(Payment.invoice_id == invoice.id).all()
+        
+        return {
+            "invoice": {
+                "id": str(invoice.id),
+                "invoice_number": invoice.invoice_number,
+                "patient_id": str(invoice.patient_id),
+                "patient_name": patient.name if patient else "Unknown",
+                "patient_email": patient.email if patient else "Unknown",
+                "total_amount": float(invoice.total_amount_cents / 100),  # Convert cents to dollars
+                "currency": invoice.currency,
+                "status": invoice.status,
+                "payment_method": invoice.payment_method,
+                "issued_at": invoice.issued_at.isoformat() if invoice.issued_at else None,
+                "due_date": invoice.due_date.isoformat() if invoice.due_date else None,
+                "created_at": invoice.created_at.isoformat() if invoice.created_at else None
+            },
+            "items": [
+                {
+                    "id": str(item.id),
+                    "description": item.description,
+                    "quantity": item.quantity,
+                    "unit_price": float(item.unit_price_cents / 100),
+                    "tax": float(item.tax_cents / 100),
+                    "total": float((item.unit_price_cents * item.quantity + item.tax_cents) / 100)
+                } for item in items
+            ],
+            "payments": [
+                {
+                    "id": str(payment.id),
+                    "amount": float(payment.amount_cents / 100),
+                    "status": payment.status,
+                    "payment_method": payment.payment_method,
+                    "received_at": payment.received_at.isoformat() if payment.received_at else None
+                } for payment in payments
+            ]
+        }
+    finally:
+        db.close()
+
 # Tool to get weather (example from the tutorial)
 def get_weather(location: str) -> Dict[str, Any]:
     """Get weather information for a given location."""
@@ -185,21 +241,24 @@ clinic_agent = LlmAgent(
 
     1. **Patient Management**: Search for patients, view patient details, and manage patient information
     2. **Billing Operations**: View invoices, payments, and billing summaries
-    3. **System Analytics**: Provide insights on revenue, outstanding amounts, and recent activity
-    4. **UI Customization**: Help customize the interface theme and appearance
+    3. **Invoice Lookup**: Find invoices by invoice number (e.g., CLINIC-202510-0038)
+    4. **System Analytics**: Provide insights on revenue, outstanding amounts, and recent activity
+    5. **UI Customization**: Help customize the interface theme and appearance
 
     IMPORTANT RULES:
     1. Always use the appropriate tools when users ask for specific information
     2. For patient searches, use search_patients with the query term
     3. For detailed patient info, use get_patient_info with the patient ID
-    4. For billing overview, use get_billing_summary
-    5. For recent activity, use get_recent_activity
-    6. Be helpful and provide clear, actionable information
-    7. If you don't have access to certain data, explain what information is available
+    4. For invoice lookup by number, use get_invoice_by_number with the invoice number
+    5. For billing overview, use get_billing_summary
+    6. For recent activity, use get_recent_activity
+    7. Be helpful and provide clear, actionable information
+    8. If you don't have access to certain data, explain what information is available
 
     Examples of when to use tools:
     - "Find patient John Smith" → Use search_patients with "John Smith"
     - "Show me patient details for ID 123" → Use get_patient_info with 123
+    - "Find invoice CLINIC-202510-0038" → Use get_invoice_by_number with "CLINIC-202510-0038"
     - "What's our billing summary?" → Use get_billing_summary
     - "Show recent activity" → Use get_recent_activity
     - "Set theme to blue" → Use set_theme_color with "blue"
@@ -261,6 +320,18 @@ clinic_agent = LlmAgent(
                 )
             ],
             func=set_theme_color
+        ),
+        FunctionTool(
+            name="get_invoice_by_number",
+            description="Get invoice information by invoice number (e.g., CLINIC-202510-0038)",
+            parameters=[
+                FunctionDeclaration.Parameter(
+                    name="invoice_number",
+                    type=types.Type.STRING,
+                    description="The invoice number to search for (e.g., CLINIC-202510-0038)"
+                )
+            ],
+            func=get_invoice_by_number
         ),
         FunctionTool(
             name="get_weather",

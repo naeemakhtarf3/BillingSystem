@@ -1,1 +1,1 @@
-﻿web: gunicorn backend.app.main:app -k uvicorn.workers.UvicornWorker --log-level info
+﻿web: cd backend && python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
