@@ -20,13 +20,11 @@ app = FastAPI(
 logging.getLogger("uvicorn.error").info(f"Resolved DATABASE_URL: {settings.DATABASE_URL}")
 
 # Set up CORS
-# Allow any localhost origin (any port) in development via regex, while keeping
-# the explicit list in settings as fallback. This accepts http(s)://localhost(:port)
+# Allow all origins temporarily to fix CORS issues
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[],
-    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
-    allow_credentials=True,
+    allow_origins=["*"],
+    allow_credentials=False,  # Must be False when allow_origins=["*"]
     allow_methods=["*"],
     allow_headers=["*"],
 )

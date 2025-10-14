@@ -32,6 +32,8 @@ services:
         sync: false
       - key: EMAIL_FROM_ADDRESS
         value: no-reply@clinic.com
+      - key: CORS_ORIGINS
+        value: https://billingsystem-gm9s.onrender.com,http://localhost:5173,http://localhost:5174
 
 databases:
   - name: clinic-billing-db
