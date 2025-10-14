@@ -11,7 +11,9 @@ const SimpleAITest = () => {
     
     setLoading(true);
     try {
-      const res = await fetch('http://localhost:8000/agent/chat/any', {
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
+      const res = await fetch(API_BASE_URL+'/agent/chat/any', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
