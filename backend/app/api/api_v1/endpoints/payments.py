@@ -167,11 +167,13 @@ def create_payment_link_public(
     
     try:
         # Create Stripe Checkout Session (or fake one in test/dev env)
+        print("Create Stripe Checkout Session 1")
         checkout_session = _create_checkout_session(invoice, request)
-
+        print("Create Stripe Checkout Session 2")
         invoice.stripe_checkout_session_id = checkout_session.id
+        print("Create Stripe Checkout Session 3 : "+invoice.stripe_checkout_session_id)
         db.commit()
-
+        print("Create Stripe Checkout Session 4")
         return {
             "checkout_url": checkout_session.url,
             "session_id": checkout_session.id
