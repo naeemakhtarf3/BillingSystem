@@ -146,6 +146,8 @@ def create_payment_link_public(
     """Public endpoint for patients to create payment links without authentication"""
     # Ensure invoice_id is a UUID for DB lookup
     try:
+        logging.info(f"Creating payment link for invoice_id : {invoice_id}")
+        print(f"Creating payment link for invoice_id : {invoice_id}")
         invoice_uuid = uuid.UUID(str(invoice_id))
     except Exception:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid invoice id")
@@ -175,9 +177,14 @@ def create_payment_link_public(
             "session_id": checkout_session.id
         }
     except Exception as e:
+        logging.error(f"Stripe session creation failed: {str(e)}")
+        logging.error(f"Settings STRIPE_SECRET_KEY present: {bool(settings.STRIPE_SECRET_KEY)}")
+        logging.error(f"CORS_ORIGINS[0]: {settings.CORS_ORIGINS[0]}")
+        print(f"Settings STRIPE_SECRET_KEY present: {bool(settings.STRIPE_SECRET_KEY)}")
+        print(f"CORS_ORIGINS[0]: {settings.CORS_ORIGINS[0]}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Stripe/create session error: {f'{settings.CORS_ORIGINS[0]}/patient/payment/success?session_id={{CHECKOUT_SESSION_ID}}, {str(e)}'}"
+            detail=f"Stripe/create session error: {str(e)}"
         )
 
 
