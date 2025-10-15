@@ -43,12 +43,43 @@ def _create_checkout_session(invoice, request: Request = None):
     """Create a Stripe Checkout Session or return a fake session when Stripe isn't configured.
     If request is provided we prefer building a backend absolute URL for local checkout pages.
     """
+    print("_create_checkout_session called")
     # ensure runtime stripe key from settings if available
-    if not getattr(stripe, "api_key", None) and getattr(settings, "STRIPE_SECRET_KEY", None):
-        stripe.api_key = settings.STRIPE_SECRET_KEY
+    stripe.api_key = settings.STRIPE_SECRET_KEY
+
+    print(f"Stripe API Key: {stripe.api_key}")
+    print(invoice.invoice_number, invoice.total_amount_cents, invoice.currency)
+
+    # Check if Stripe API key is properly set
+    if not stripe.api_key or stripe.api_key == "":
+        print("Stripe API key is not set, falling back to fake session")
+        # Fallback fake session (local dev/test)
+        class _FakeSession:
+            def __init__(self, id, url):
+                self.id = id
+                self.url = url
+
+        fake_id = f"local_cs_{uuid.uuid4().hex}"
+
+        # Build backend-local URL using request.url_for when available, else use configured origin
+        if request is not None:
+            try:
+                print("Creating local checkout URL using request.url_for")
+                fake_url = str(request.url_for("local_checkout_page", session_id=fake_id))
+            except Exception:
+                print("Failed to use request.url_for, falling back to CORS_ORIGINS")
+                base = settings.CORS_ORIGINS[0].rstrip('/')
+                fake_url = f"{base}/api/v1/payments/local-checkout/{fake_id}"
+        else:
+            print("Creating local checkout URL using CORS_ORIGINS")
+            base = settings.CORS_ORIGINS[0].rstrip('/')
+            fake_url = f"{base}/api/v1/payments/local-checkout/{fake_id}"
+
+        return _FakeSession(fake_id, fake_url)
 
     # Real Stripe (when SDK and API key available)
     if _ensure_stripe_loaded() and stripe.api_key:
+        print("Creating real Stripe Checkout Session")
         return stripe.checkout.Session.create(
             payment_method_types=['card'],
             line_items=[{
@@ -67,10 +98,11 @@ def _create_checkout_session(invoice, request: Request = None):
             cancel_url=f'{settings.CORS_ORIGINS[0]}/patient/payment/cancelled',
             metadata={
                 'invoice_id': str(invoice.id),
-                'clinic_id': getattr(settings, "CLINIC_ID", "clinic_001")
+                'clinic_id': getattr(settings, "CLINIC_ID", str(invoice.invoice_number))
             }
         )
 
+    print("Stripe not configured, creating fake session")
     # Fallback fake session (local dev/test)
     class _FakeSession:
         def __init__(self, id, url):
@@ -82,11 +114,14 @@ def _create_checkout_session(invoice, request: Request = None):
     # Build backend-local URL using request.url_for when available, else use configured origin
     if request is not None:
         try:
+            print("Creating local checkout URL using request.url_for")
             fake_url = str(request.url_for("local_checkout_page", session_id=fake_id))
         except Exception:
+            print("Failed to use request.url_for, falling back to CORS_ORIGINS")
             base = settings.CORS_ORIGINS[0].rstrip('/')
             fake_url = f"{base}/api/v1/payments/local-checkout/{fake_id}"
     else:
+        print("Creating local checkout URL using CORS_ORIGINS")
         base = settings.CORS_ORIGINS[0].rstrip('/')
         fake_url = f"{base}/api/v1/payments/local-checkout/{fake_id}"
 

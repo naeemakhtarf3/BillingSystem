@@ -42,14 +42,20 @@ class Settings:
         # Stripe
         self.STRIPE_PUBLISHABLE_KEY: str = os.getenv("STRIPE_PUBLISHABLE_KEY", "pk_test_51SDKdvI0OwBnbEX2nzwEPTIE1xscwZEZoJbluvX4hncILO1HxrSdy6WdM8Cwkw7MgJfHjmMWgCKfDdq0Tu4xhrpt00kN5PtJJ9")
         self.STRIPE_SECRET_KEY: str = os.getenv("STRIPE_SECRET_KEY", "sk_test_51SDKdvI0OwBnbEX2mtaeqBTQmpfhnV45MEpnGoJoGdDSbzjLQ7YYADvD2608oNArI600PFpvYmJkaErCbSWGmohY00NBNTSJ8Z")
-        self.STRIPE_WEBHOOK_SECRET: str = os.getenv("STRIPE_WEBHOOK_SECRET", "sk_test_51SDKdvI0OwBnbEX2mtaeqBTQmpfhnV45MEpnGoJoGdDSbzjLQ7YYADvD2608oNArI600PFpvYmJkaErCbSWGmohY00NBNTSJ8Z")
+        self.STRIPE_WEBHOOK_SECRET: str = os.getenv("STRIPE_WEBHOOK_SECRET", "whsec_test_webhook_secret_placeholder")
+
+        # Environment
+        self.ENVIRONMENT: str = os.getenv("ENVIRONMENT", "local")
 
         # Application
         self.APP_NAME: str = os.getenv("APP_NAME", "Clinic Billing System")
         self.APP_VERSION: str = os.getenv("APP_VERSION", "1.0.0")
         self.DEBUG: bool = os.getenv("DEBUG", "True").lower() == "true"
         self.API_V1_STR: str = os.getenv("API_V1_STR", "/api/v1")
-        self.CORS_ORIGINS: List[str] = [x.strip() for x in "https://billingsystem-gm9s.onrender.com, http://localhost:5173,http://localhost:5174,http://localhost:8080,http://localhost:3001,http://127.0.0.1:5174,http://127.0.0.1:3000".split(",")]
+        if self.ENVIRONMENT == "local":
+            self.CORS_ORIGINS: List[str] = ["http://localhost:5173"]
+        else:
+            self.CORS_ORIGINS: List[str] = ["https://billingsystem-gm9s.onrender.com"]
 
         # Email Configuration
         self.MAIL_PROVIDER: str = os.getenv("MAIL_PROVIDER", "smtp")

@@ -28,3 +28,4 @@ build/
 .history/
 *.iml
 *.suo
+*.db
