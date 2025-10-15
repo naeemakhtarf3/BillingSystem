@@ -39,7 +39,7 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 app.mount("/agent", agent_app)
 
 # Mount static files from static directory (copied during build)
-static_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "static")
+static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
 if os.path.exists(static_dir):
     # Catch-all route for SPA routing (must be last)
     @app.get("/{path:path}")
