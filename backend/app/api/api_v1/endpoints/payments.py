@@ -47,7 +47,6 @@ def _create_checkout_session(invoice, request: Request = None):
     if not getattr(stripe, "api_key", None) and getattr(settings, "STRIPE_SECRET_KEY", None):
         stripe.api_key = settings.STRIPE_SECRET_KEY
 
-    logging.info("Creating checkout session for SecretKey: %s (Stripe key set: %s)", settings.STRIPE_SECRET_KEY, bool(stripe.api_key))
     # Real Stripe (when SDK and API key available)
     if _ensure_stripe_loaded() and stripe.api_key:
         return stripe.checkout.Session.create(
@@ -83,14 +82,11 @@ def _create_checkout_session(invoice, request: Request = None):
     # Build backend-local URL using request.url_for when available, else use configured origin
     if request is not None:
         try:
-            logging.info("Building local checkout URL using request.url_for")
             fake_url = str(request.url_for("local_checkout_page", session_id=fake_id))
         except Exception:
-            logging.exception("Failed to build local checkout URL using request.url_for, falling back to CORS origin")
             base = settings.CORS_ORIGINS[0].rstrip('/')
             fake_url = f"{base}/api/v1/payments/local-checkout/{fake_id}"
     else:
-        logging.info("Building local checkout URL using CORS origin")
         base = settings.CORS_ORIGINS[0].rstrip('/')
         fake_url = f"{base}/api/v1/payments/local-checkout/{fake_id}"
 
@@ -169,9 +165,8 @@ def create_payment_link_public(
     
     try:
         # Create Stripe Checkout Session (or fake one in test/dev env)
-        logging.info("Public create payment link for invoice %s", invoice.invoice_number)
         checkout_session = _create_checkout_session(invoice, request)
-        logging.info("Created checkout session %s for invoice %s", checkout_session.id, invoice.invoice_number)
+
         invoice.stripe_checkout_session_id = checkout_session.id
         db.commit()
 
