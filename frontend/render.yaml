@@ -6,22 +6,7 @@ services:
     staticPublishPath: ./dist
     routes:
       - type: rewrite
-        source: /staff/login
-        destination: /index.html
-      - type: rewrite
-        source: /staff/patients
-        destination: /index.html
-      - type: rewrite
-        source: /staff/dashboard
-        destination: /index.html
-      - type: rewrite
-        source: /staff/invoices
-        destination: /index.html
-      - type: rewrite
-        source: /staff/payments
-        destination: /index.html
-      - type: rewrite
-        source: /staff/audit
+        source: /staff/*
         destination: /index.html
       - type: rewrite
         source: /patient/*
