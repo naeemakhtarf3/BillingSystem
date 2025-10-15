@@ -4,6 +4,9 @@ services:
     env: static
     buildCommand: npm install && npm run build
     staticPublishPath: ./dist
+    envVars:
+      - key: NODE_ENV
+        value: production
     routes:
       - type: rewrite
         source: /*

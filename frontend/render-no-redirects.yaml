@@ -6,5 +6,11 @@ services:
     staticPublishPath: ./dist
     routes:
       - type: rewrite
+        source: /staff/*
+        destination: /index.html
+      - type: rewrite
+        source: /patient/*
+        destination: /index.html
+      - type: rewrite
         source: /*
         destination: /index.html
