@@ -177,7 +177,7 @@ def create_payment_link_public(
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Stripe/create session error: {settings.STRIPE_SECRET_KEY}, {getattr(stripe, "api_key", None)}, {str(e)}"
+            detail=f"Stripe/create session error: {f'{settings.CORS_ORIGINS[0]}/patient/payment/success?session_id={{CHECKOUT_SESSION_ID}}, {str(e)}'}"
         )
 
 
