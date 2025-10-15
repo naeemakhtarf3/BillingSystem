@@ -2,7 +2,7 @@ services:
   - type: web
     name: clinic-billing-frontend
     env: static
-    buildCommand: npm install && npm run build
+    buildCommand: npm ci && npx vite build
     staticPublishPath: ./dist
     routes:
       - type: rewrite
