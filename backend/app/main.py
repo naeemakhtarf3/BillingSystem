@@ -41,16 +41,19 @@ app.mount("/agent", agent_app)
 # Mount static files from static directory (copied during build)
 static_dir = os.path.join(os.path.dirname(__file__), "static")
 if os.path.exists(static_dir):
-    # Mount static files at root, but API routes take precedence due to order
-    app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
-
     # Catch-all route for SPA routing (must be last)
     @app.get("/{path:path}")
     async def serve_spa(path: str):
         # Skip API routes and agent routes
         if path.startswith("api/") or path.startswith("agent/"):
             return {"error": "Not found"}
-        # Serve index.html for all other routes to support client-side routing
+
+        # Check if it's a static file
+        file_path = os.path.join(static_dir, path)
+        if os.path.isfile(file_path):
+            return FileResponse(file_path)
+
+        # Otherwise, serve index.html for SPA routing
         index_path = os.path.join(static_dir, "index.html")
         if os.path.exists(index_path):
             return FileResponse(index_path)
