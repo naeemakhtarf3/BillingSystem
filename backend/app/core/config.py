@@ -55,7 +55,7 @@ class Settings:
         if self.ENVIRONMENT == "local":
             self.CORS_ORIGINS: List[str] = ["http://localhost:5173"]
         else:
-            self.CORS_ORIGINS: List[str] = ["https://billingsystem-gm9s.onrender.com"]
+            self.CORS_ORIGINS: List[str] = ["https://billingsystem-teal.vercel.app"]
 
         # Email Configuration
         self.MAIL_PROVIDER: str = os.getenv("MAIL_PROVIDER", "smtp")
