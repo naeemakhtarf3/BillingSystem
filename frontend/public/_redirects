@@ -1,1 +1,5 @@
+# SPA routing - redirect all routes to index.html
 /*    /index.html   200
+
+# Specific handling for patient payment routes
+/patient/payment/*    /index.html   200

@@ -4,6 +4,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import CopilotProvider from './components/CopilotProvider'
 import ProtectedRoute from './components/ProtectedRoute'
 import Layout from './components/Layout'
+import ErrorBoundary from './components/ErrorBoundary'
 import Login from './pages/staff/Login'
 import Dashboard from './pages/staff/Dashboard'
 import Patients from './pages/staff/Patients'
@@ -19,9 +20,10 @@ import SimpleAIChat from './components/SimpleAIChat'
 
 function App() {
   return (
-    <CopilotProvider>
-      <AuthProvider>
-        <Routes>
+    <ErrorBoundary>
+      <CopilotProvider>
+        <AuthProvider>
+          <Routes>
           {/* Staff Routes */}
           <Route path="/staff/login" element={<Login />} />
           <Route path="/staff" element={
@@ -44,12 +46,16 @@ function App() {
           <Route path="/patient/invoice/:invoiceId" element={<PatientInvoiceView />} />
           <Route path="/patient/payment/success" element={<PaymentSuccess />} />
           <Route path="/patient/payment/cancelled" element={<PaymentCancelled />} />
+          
+          {/* Catch-all route for any unmatched paths */}
+          <Route path="*" element={<Navigate to="/staff/login" replace />} />
 
           {/* Default redirect */}
           <Route path="/" element={<Navigate to="/staff/login" replace />} />
-        </Routes>
-      </AuthProvider>
-    </CopilotProvider>
+          </Routes>
+        </AuthProvider>
+      </CopilotProvider>
+    </ErrorBoundary>
   )
 }
 
