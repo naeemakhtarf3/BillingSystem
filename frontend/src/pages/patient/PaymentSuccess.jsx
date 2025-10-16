@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react'
-import { Box, Typography, Card, CardContent, CircularProgress, Alert } from '@mui/material'
-import { useSearchParams } from 'react-router-dom'
+import { Box, Typography, Card, CardContent, CircularProgress, Alert, Button } from '@mui/material'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { api } from '../../services/api'
 
 const PaymentSuccess = () => {
   const [searchParams] = useSearchParams()
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [paymentData, setPaymentData] = useState(null)
@@ -63,6 +64,11 @@ const PaymentSuccess = () => {
             <Typography variant="body1" sx={{ mt: 2 }}>
               Please contact support if you believe this is an error.
             </Typography>
+            {/* <Box sx={{ mt: 3 }}>
+              <Button variant="contained" onClick={() => navigate('/staff/invoices')}>
+                View Invoices
+              </Button>
+            </Box> */}
           </CardContent>
         </Card>
       </Box>
@@ -100,6 +106,11 @@ const PaymentSuccess = () => {
           <Typography variant="body1" sx={{ mt: 3 }}>
             Thank you for your payment. You will receive a confirmation email shortly.
           </Typography>
+          {/* <Box sx={{ mt: 3 }}>
+            <Button variant="contained" onClick={() => navigate('/staff/invoices')}>
+              View Invoices
+            </Button>
+          </Box> */}
         </CardContent>
       </Card>
     </Box>

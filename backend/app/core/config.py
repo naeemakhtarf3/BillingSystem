@@ -15,11 +15,18 @@ class Settings:
         default_db_path = (backend_dir / "clinic_billing.db").as_posix()
         default_db_url = f"sqlite:///{default_db_path}"
 
+        # Environment
+        self.ENVIRONMENT: str = os.getenv("ENVIRONMENT", "local")
         # Allow DATABASE_URL override from env, but if it's a sqlite URL with a
         # relative path (e.g. sqlite:///./clinic_billing.db) normalize it to an
         # absolute path inside the backend directory so all scripts use the same
         # file regardless of the current working directory.
-        env_db_url = "postgresql://neondb_owner:npg_Xzxog43QnSfN@ep-lively-lab-admvsm99-pooler.c-2.us-east-1.aws.neon.tech/billingdb1?sslmode=require&channel_binding=require"
+        if self.ENVIRONMENT == "local":
+            env_db_url = default_db_url
+        else:
+            env_db_url = "postgresql://neondb_owner:npg_Xzxog43QnSfN@ep-lively-lab-admvsm99-pooler.c-2.us-east-1.aws.neon.tech/billingdb1?sslmode=require&channel_binding=require"
+
+        
         if env_db_url:
             if env_db_url.startswith("sqlite:///"):
                 # Extract the path portion after sqlite:///
@@ -44,8 +51,7 @@ class Settings:
         self.STRIPE_SECRET_KEY: str = os.getenv("STRIPE_SECRET_KEY", "sk_test_51SDKdvI0OwBnbEX2mtaeqBTQmpfhnV45MEpnGoJoGdDSbzjLQ7YYADvD2608oNArI600PFpvYmJkaErCbSWGmohY00NBNTSJ8Z")
         self.STRIPE_WEBHOOK_SECRET: str = os.getenv("STRIPE_WEBHOOK_SECRET", "whsec_test_webhook_secret_placeholder")
 
-        # Environment
-        self.ENVIRONMENT: str = os.getenv("ENVIRONMENT", "local")
+
 
         # Application
         self.APP_NAME: str = os.getenv("APP_NAME", "Clinic Billing System")

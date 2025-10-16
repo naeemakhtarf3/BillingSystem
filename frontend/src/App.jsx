@@ -43,7 +43,11 @@ function App() {
           </Route>
 
           {/* Patient Routes - These must come before catch-all */}
-          <Route path="/patient/invoice/:invoiceId" element={<PatientInvoiceView />} />
+          <Route path="/patient/invoice/:invoiceId" element={
+            <ProtectedRoute>
+              <PatientInvoiceView />
+            </ProtectedRoute>
+          } />
           <Route path="/patient/payment/success" element={<PaymentSuccess />} />
           <Route path="/patient/payment/cancelled" element={<PaymentCancelled />} />
 

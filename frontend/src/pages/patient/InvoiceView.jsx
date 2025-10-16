@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react'
 import { Box, Typography, Card, CardContent, CircularProgress, Button, Table, TableBody, TableCell, TableHead, TableRow, Alert, Snackbar } from '@mui/material'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { api } from '../../services/api'
 
 const InvoiceView = () => {
   const { invoiceId } = useParams()
+  const navigate = useNavigate()
   const [loading, setLoading] = useState(true)
   const [invoice, setInvoice] = useState(null)
   const [error, setError] = useState('')
@@ -115,6 +116,11 @@ const InvoiceView = () => {
               </TableRow>
             </TableBody>
           </Table>
+          <Box sx={{ mt: 3 }}>
+            <Button variant="contained" onClick={() => navigate('/staff/invoices')}>
+              View Invoices
+            </Button>
+          </Box>
         </CardContent>
       </Card>
 
