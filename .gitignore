@@ -28,3 +28,7 @@ build/
 *.iml
 *.suo
 *.db
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
