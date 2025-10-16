@@ -42,16 +42,16 @@ function App() {
           <Route path="ai-chat" element={<SimpleAIChat />} />
           </Route>
 
-          {/* Patient Routes */}
+          {/* Patient Routes - These must come before catch-all */}
           <Route path="/patient/invoice/:invoiceId" element={<PatientInvoiceView />} />
           <Route path="/patient/payment/success" element={<PaymentSuccess />} />
           <Route path="/patient/payment/cancelled" element={<PaymentCancelled />} />
-          
-          {/* Catch-all route for any unmatched paths */}
-          <Route path="*" element={<Navigate to="/staff/login" replace />} />
 
           {/* Default redirect */}
           <Route path="/" element={<Navigate to="/staff/login" replace />} />
+          
+          {/* Catch-all route for any unmatched paths - must be last */}
+          <Route path="*" element={<Navigate to="/staff/login" replace />} />
           </Routes>
         </AuthProvider>
       </CopilotProvider>

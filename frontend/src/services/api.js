@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { isPatientRoute } from '../utils/routeUtils'
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
@@ -48,10 +49,12 @@ api.interceptors.response.use(
           return api(originalRequest)
         }
       } catch (refreshError) {
-        // Refresh failed, redirect to login
+        // Refresh failed, only redirect to login if not on patient route
         localStorage.removeItem('access_token')
         localStorage.removeItem('refresh_token')
-        window.location.href = '/staff/login'
+        if (!isPatientRoute()) {
+          window.location.href = '/staff/login'
+        }
         return Promise.reject(refreshError)
       }
     }

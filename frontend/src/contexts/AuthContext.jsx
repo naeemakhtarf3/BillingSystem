@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { api } from '../services/api'
+import { isPatientRoute } from '../utils/routeUtils'
 
 const AuthContext = createContext()
 
@@ -17,6 +18,12 @@ export const AuthProvider = ({ children }) => {
   const [token, setToken] = useState(localStorage.getItem('access_token'))
 
   useEffect(() => {
+    // Don't initialize auth on patient routes
+    if (isPatientRoute()) {
+      setLoading(false)
+      return
+    }
+
     if (token) {
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`
       fetchUser()
