@@ -25,11 +25,13 @@ import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import { api } from '../../services/api'
 import { useNavigate } from 'react-router-dom'
+import StatusFilterDropdown from '../../components/StatusFilterDropdown'
 
 const emptyItem = () => ({ description: '', quantity: 1, unit_price_cents: 0, tax_cents: 0 })
 
 const Invoices = () => {
   const [invoices, setInvoices] = useState([])
+  const [filteredInvoices, setFilteredInvoices] = useState([])
   const [patients, setPatients] = useState([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -44,7 +46,9 @@ const Invoices = () => {
     setLoading(true)
     try {
       const [invRes, patRes] = await Promise.all([api.get('/invoices'), api.get('/patients')])
-      setInvoices(invRes.data || [])
+      const invoiceData = invRes.data || []
+      setInvoices(invoiceData)
+      setFilteredInvoices(invoiceData) // Initialize filtered invoices with all invoices
       setPatients(patRes.data || [])
     } catch (e) {
       console.error('Failed loading invoices or patients', e)
@@ -60,6 +64,27 @@ const Invoices = () => {
     patients.forEach((p) => { m[p.id] = p })
     return m
   }, [patients])
+
+  // Transform invoices data for StatusFilterDropdown component
+  const transformedInvoices = React.useMemo(() => {
+    return invoices;
+    return invoices.map(inv => ({
+      id: inv.id,
+      invoiceNumber: inv.invoice_number,
+      patient: patientMap[inv.patient_id]?.name || patientMap[inv.patient_id]?.email || inv.patient_id,
+      status: inv.status === 'draft' ? 'issued' : inv.status, // Map draft to issued for filtering
+      originalStatus: inv.status, // Keep original status for action buttons
+      amount: (inv.total_amount_cents / 100),
+      issuedDate: inv.issued_at || inv.created_at,
+      currency: inv.currency
+    })).filter(inv => inv.id && inv.invoiceNumber) // Filter out invalid entries
+  }, [invoices, patientMap])
+
+  // Handle filter changes from StatusFilterDropdown
+  const handleFilterChange = (filtered) => {
+    console.log('Filter changed, filtered invoices:', filtered);
+    setFilteredInvoices(filtered)
+  }
 
   const openCreate = () => {
     setForm({ patient_id: patients[0]?.id || '', currency: 'USD', due_date: '', items: [emptyItem()] })
@@ -183,9 +208,17 @@ const Invoices = () => {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="h4" gutterBottom>Invoice Management</Typography>
-        <Button startIcon={<AddIcon />} variant="contained" onClick={openCreate}>Create Invoice</Button>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography variant="subtitle1">Filter by Status:</Typography>
+          <StatusFilterDropdown
+            invoices={transformedInvoices}
+            onFilterChange={handleFilterChange}
+            showNoResultsMessage={false} // We'll handle empty state in the table
+          />
+          <Button startIcon={<AddIcon />} variant="contained" onClick={openCreate}>Create Invoice</Button>
+        </Box>
       </Box>
 
       <TableContainer component={Paper}>
@@ -201,24 +234,34 @@ const Invoices = () => {
             </TableRow>
           </TableHead>
           <TableBody>
-            {invoices.map((inv) => (
-              <TableRow key={inv.id}>
-                <TableCell>{inv.invoice_number}</TableCell>
-                <TableCell>{patientMap[inv.patient_id]?.name || patientMap[inv.patient_id]?.email || inv.patient_id}</TableCell>
-                <TableCell>{inv.status}</TableCell>
-                <TableCell>{(inv.total_amount_cents / 100).toFixed(2)} {inv.currency}</TableCell>
-                <TableCell>{inv.issued_at ? new Date(inv.issued_at).toLocaleString() : '-'}</TableCell>
-                <TableCell>
-                  <Button size="small" onClick={() => navigate(`/patient/invoice/${inv.id}`)}>View</Button>
-                  {inv.status === 'draft' && (
-                    <Button size="small" onClick={() => setConfirm({ open: true, action: 'issue', invoiceId: inv.id })} disabled={actionLoading[inv.id + '_issue']}>{actionLoading[inv.id + '_issue'] ? 'Issuing...' : 'Issue'}</Button>
-                  )}
-                  {inv.status !== 'paid' && inv.status !== 'cancelled' && inv.status !== 'draft' && (
-                    <Button size="small" onClick={() => setConfirm({ open: true, action: 'cancel', invoiceId: inv.id })} disabled={actionLoading[inv.id + '_cancel']}>{actionLoading[inv.id + '_cancel'] ? 'Cancelling...' : 'Cancel'}</Button>
-                  )}
+            {filteredInvoices.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                  <Typography variant="body1" color="text.secondary">
+                    No invoices match the selected filter.
+                  </Typography>
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              filteredInvoices.map((inv) => (
+                <TableRow key={inv.id}>
+                  <TableCell>{inv.invoice_number}</TableCell>
+                  <TableCell>{patientMap[inv.patient_id]?.name || patientMap[inv.patient_id]?.email || inv.patient_id}</TableCell>
+                  <TableCell>{inv.status}</TableCell>
+                  <TableCell>{(inv.total_amount_cents / 100).toFixed(2)} {inv.currency}</TableCell>
+                  <TableCell>{inv.issued_at ? new Date(inv.issued_at).toLocaleString() : '-'}</TableCell>
+                  <TableCell>
+                    <Button size="small" onClick={() => navigate(`/patient/invoice/${inv.id}`)}>View</Button>
+                    {inv.status === 'draft' && (
+                      <Button size="small" onClick={() => setConfirm({ open: true, action: 'issue', invoiceId: inv.id })} disabled={actionLoading[inv.id + '_issue']}>{actionLoading[inv.id + '_issue'] ? 'Issuing...' : 'Issue'}</Button>
+                    )}
+                    {inv.status !== 'paid' && inv.status !== 'cancelled' && inv.status !== 'draft' && (
+                      <Button size="small" onClick={() => setConfirm({ open: true, action: 'cancel', invoiceId: inv.id })} disabled={actionLoading[inv.id + '_cancel']}>{actionLoading[inv.id + '_cancel'] ? 'Cancelling...' : 'Cancel'}</Button>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
           </TableBody>
         </Table>
       </TableContainer>
