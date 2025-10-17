@@ -127,6 +127,15 @@ def _safe_starttls(smtp):
         os.environ.pop("SSLKEYLOGFILE", None)
         ctx = ssl.create_default_context()
         smtp.starttls(context=ctx)
+    except ssl.SSLError as e:
+        logging.warning("SSL starttls SSLError, trying with unverified context: %s", e)
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        smtp.starttls(context=ctx)
+    except Exception as e:
+        logging.error("SSL starttls failed: %s", e)
+        raise
 
 
 def get_mailer() -> Mailer:
