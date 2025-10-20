@@ -32,3 +32,4 @@ build/
 __pycache__/
 *.pyo
 *.pyd
+backend/clinic_billing.db

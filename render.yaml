@@ -32,6 +32,8 @@ services:
         sync: false
       - key: SMTP_PASSWORD
         sync: false
+      - key: SENDGRID_API_KEY
+        sync: false
       - key: EMAIL_FROM_ADDRESS
         value: no-reply@clinic.com
       - key: CORS_ORIGINS
