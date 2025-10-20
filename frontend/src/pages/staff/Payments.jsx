@@ -68,6 +68,7 @@ const Payments = () => {
     }
   }
 
+
   async function handleRefund(paymentId) {
     if (!confirm('Refund this payment? This cannot be undone.')) return
     try {
@@ -119,7 +120,7 @@ const Payments = () => {
                     <TableCell>{p.status}</TableCell>
                     <TableCell>{p.received_at ? new Date(p.received_at).toLocaleString() : '-'}</TableCell>
                     <TableCell>
-                      <Button size="small" variant="contained" color="error" disabled={p.status !== 'SUCCEEDED'} onClick={() => handleRefund(p.id)}>
+                      <Button size="small" variant="outlined" color="error" disabled={p.status && p.status.toUpperCase() !== 'SUCCEEDED' ? true : false} onClick={() => handleRefund(p.id)}>
                         Refund
                       </Button>
                     </TableCell>
