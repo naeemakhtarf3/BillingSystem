@@ -4,6 +4,8 @@ Auto-generated from all feature plans. Last updated: 2025-10-17
 
 ## Active Technologies
 - [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION] + [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION] (001-invoice-status-filter)
+- Python 3.11, React 18+ + FastAPI, SQLAlchemy, Pandas, React, Recharts, Material-UI (004-etl-reporting-system)
+- PostgreSQL with reporting schema, existing SQLite for source data (004-etl-reporting-system)
 
 ## Project Structure
 ```
@@ -19,6 +21,7 @@ cd src; pytest; ruff check .
 [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION]: Follow standard conventions
 
 ## Recent Changes
+- 004-etl-reporting-system: Added Python 3.11, React 18+ + FastAPI, SQLAlchemy, Pandas, React, Recharts, Material-UI
 - 001-invoice-status-filter: Added [e.g., Python 3.11, Swift 5.9, Rust 1.75 or NEEDS CLARIFICATION] + [e.g., FastAPI, UIKit, LLVM or NEEDS CLARIFICATION]
 
 <!-- MANUAL ADDITIONS START -->

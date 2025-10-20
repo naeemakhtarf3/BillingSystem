@@ -1,0 +1,212 @@
+openapi: 3.0.3
+info:
+  title: Reporting API
+  version: 1.0.0
+  description: Endpoints for revenue, patient histories, and outstanding payments with RBAC and PDF export
+servers:
+  - url: /api/v1
+security:
+  - bearerAuth: []
+
+paths:
+  /reports/revenue:
+    get:
+      summary: Get revenue report
+      description: Returns revenue metrics aggregated by period. Supports PDF export when accept header is application/pdf.
+      parameters:
+        - in: query
+          name: start_date
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: end_date
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: granularity
+          schema:
+            type: string
+            enum: [day, week, month]
+            default: month
+        - in: query
+          name: format
+          schema:
+            type: string
+            enum: [json, pdf]
+            default: json
+      responses:
+        '200':
+          description: Revenue report
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevenueReportResponse'
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+      x-rbac:
+        roles: [admin, finance, staff]
+  /reports/patients/{patientId}/history:
+    get:
+      summary: Get patient payment history
+      parameters:
+        - in: path
+          name: patientId
+          required: true
+          schema:
+            type: string
+        - in: query
+          name: start_date
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: end_date
+          schema:
+            type: string
+            format: date
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [paid, pending, failed, refunded]
+      responses:
+        '200':
+          description: Patient payment history (de-identified)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientHistoryResponse'
+      x-rbac:
+        roles: [admin, staff]
+  /reports/outstanding:
+    get:
+      summary: Get outstanding payments report
+      parameters:
+        - in: query
+          name: min_days_overdue
+          schema:
+            type: integer
+            minimum: 0
+        - in: query
+          name: max_days_overdue
+          schema:
+            type: integer
+            minimum: 0
+        - in: query
+          name: min_amount
+          schema:
+            type: number
+            format: float
+            minimum: 0
+        - in: query
+          name: max_amount
+          schema:
+            type: number
+            format: float
+            minimum: 0
+        - in: query
+          name: format
+          schema:
+            type: string
+            enum: [json, pdf]
+            default: json
+      responses:
+        '200':
+          description: Outstanding payments
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OutstandingPaymentsResponse'
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+      x-rbac:
+        roles: [admin, finance, collections]
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    RevenuePoint:
+      type: object
+      properties:
+        date:
+          type: string
+          format: date
+        totalRevenue:
+          type: number
+          format: float
+        paymentCount:
+          type: integer
+        averagePayment:
+          type: number
+          format: float
+    RevenueReportResponse:
+      type: object
+      properties:
+        granularity:
+          type: string
+          enum: [day, week, month]
+        points:
+          type: array
+          items:
+            $ref: '#/components/schemas/RevenuePoint'
+    PatientPayment:
+      type: object
+      properties:
+        paymentDate:
+          type: string
+          format: date
+        amount:
+          type: number
+          format: float
+        status:
+          type: string
+          enum: [paid, pending, failed, refunded]
+        invoiceId:
+          type: string
+    PatientHistoryResponse:
+      type: object
+      properties:
+        patientId:
+          type: string
+          description: De-identified patient identifier
+        payments:
+          type: array
+          items:
+            $ref: '#/components/schemas/PatientPayment'
+    OutstandingPayment:
+      type: object
+      properties:
+        patientId:
+          type: string
+        invoiceId:
+          type: string
+        amountDue:
+          type: number
+          format: float
+        daysOverdue:
+          type: integer
+        lastPaymentDate:
+          type: string
+          format: date
+        status:
+          type: string
+          enum: [overdue, collection, written_off]
+    OutstandingPaymentsResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OutstandingPayment'
+        total:
+          type: integer
