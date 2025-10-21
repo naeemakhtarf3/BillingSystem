@@ -36,6 +36,20 @@ Accept: application/pdf
 Authorization: Bearer <token>
 ```
 
+### Outstanding Payments Report
+```http
+GET /api/v1/reports/outstanding?min_days_overdue=30&min_amount=50
+Accept: application/json
+Authorization: Bearer <token>
+```
+
+PDF export:
+```http
+GET /api/v1/reports/outstanding?min_days_overdue=30&min_amount=50&format=pdf
+Accept: application/pdf
+Authorization: Bearer <token>
+```
+
 ### Patient Payment History
 ```http
 GET /api/v1/reports/patients/{patientId}/history?start_date=2025-01-01&end_date=2025-01-31
@@ -60,3 +74,11 @@ Authorization: Bearer <token>
 - All report access is audit-logged
 - Data retention: 1 year
 - Ensure HTTPS and secure secrets management
+
+## Admin ETL Trigger
+For emergency backfill or to recover from failures, an admin can trigger ETL:
+
+```http
+POST /api/v1/reports/etl/run?from_date=2025-01-01&to_date=2025-01-31
+Authorization: Bearer <admin-token>
+```

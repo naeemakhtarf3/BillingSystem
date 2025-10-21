@@ -55,7 +55,10 @@ const Patients = () => {
     setError('')
     try {
       const res = await api.get('/patients', { params: q ? { query: q } : {} })
-      setPatients(res.data || [])
+      if(!res.data.error)
+        setPatients(res.data || [])
+      else
+        setPatients([])
     } catch (e) {
       setError(e.response?.data?.detail || 'Failed to fetch patients')
     } finally {

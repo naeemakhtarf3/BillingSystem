@@ -12,6 +12,7 @@ import PatientDetail from './pages/staff/patient/PatientDetail'
 import Invoices from './pages/staff/Invoices'
 import Payments from './pages/staff/Payments'
 import Audit from './pages/staff/Audit'
+import Reports from './pages/staff/Reports'
 import PatientInvoiceView from './pages/patient/InvoiceView'
 import PaymentSuccess from './pages/patient/PaymentSuccess'
 import PaymentCancelled from './pages/patient/PaymentCancelled'
@@ -38,6 +39,7 @@ function App() {
           <Route path="invoices" element={<Invoices />} />
           <Route path="payments" element={<Payments />} />
           <Route path="audit" element={<Audit />} />
+          <Route path="reports" element={<Reports />} />
           <Route path="ai-test" element={<SimpleAITest />} />
           <Route path="ai-chat" element={<SimpleAIChat />} />
           </Route>
