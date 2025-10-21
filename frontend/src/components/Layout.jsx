@@ -42,6 +42,7 @@ const menuItems = [
   { text: 'Invoices', icon: <Receipt />, path: '/staff/invoices' },
   { text: 'Payments', icon: <Payment />, path: '/staff/payments' },
   { text: 'Audit Logs', icon: <Assessment />, path: '/staff/audit' },
+  { text: 'Reports', icon: <Assessment />, path: '/staff/reports' },
   { text: 'AI Assistant', icon: <SmartToy />, path: '/staff/ai-chat' },
 ]
 

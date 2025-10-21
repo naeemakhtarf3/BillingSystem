@@ -8,6 +8,7 @@ import os
 from app.api.api_v1.api import api_router
 from app.db.session import Base, engine
 from app.agents.simple_clinic_agent import agent_app
+from app.services.etl_service import ETLService
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -38,26 +39,19 @@ app.include_router(api_router, prefix=settings.API_V1_STR)
 # Mount agent application for AI communication
 app.mount("/agent", agent_app)
 
-# Mount static files from static directory (copied during build)
-static_dir = os.path.join(os.path.dirname(__file__), "..", "static")
-if os.path.exists(static_dir):
-    # Catch-all route for SPA routing (must be last)
-    @app.get("/{path:path}")
-    async def serve_spa(path: str):
-        # Skip API routes and agent routes
-        if path.startswith("api/") or path.startswith("agent/"):
-            return {"error": "Not found"}
+@app.on_event("startup")
+async def startup_event():
+    """Initialize ETL data on startup"""
+    try:
+        logging.getLogger("uvicorn.error").info("Running initial ETL process...")
+        etl_service = ETLService()
+        etl_service.run_for_range(None, None)
+        logging.getLogger("uvicorn.error").info("ETL process completed successfully")
+    except Exception as e:
+        logging.getLogger("uvicorn.error").error(f"ETL process failed: {e}")
+        # Don't fail startup if ETL fails
 
-        # Check if it's a static file
-        file_path = os.path.join(static_dir, path)
-        if os.path.isfile(file_path):
-            return FileResponse(file_path)
 
-        # Otherwise, serve index.html for SPA routing
-        index_path = os.path.join(static_dir, "index.html")
-        if os.path.exists(index_path):
-            return FileResponse(index_path)
-        return {"error": "Not found"}
 
 @app.get("/")
 async def root():
