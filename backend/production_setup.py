@@ -60,7 +60,10 @@ def main():
     try:
         sys.path.insert(0, os.getcwd())
         from app.db.session import engine
+        from app.core.config import settings
         from sqlalchemy import text
+        
+        logger.info(f"Using database URL: {settings.DATABASE_URL}")
         
         with engine.connect() as conn:
             # Check if reporting tables exist
@@ -77,7 +80,8 @@ def main():
             if len(tables) == 4:
                 logger.info("✅ All reporting tables created successfully")
             else:
-                logger.warning(f"⚠️ Missing tables: {set(['revenue_metrics', 'patient_payment_history', 'outstanding_payments', 'etl_process_status']) - set(tables)}")
+                missing = set(['revenue_metrics', 'patient_payment_history', 'outstanding_payments', 'etl_process_status']) - set(tables)
+                logger.warning(f"⚠️ Missing tables: {missing}")
                 
     except Exception as e:
         logger.error(f"❌ Database verification failed: {e}")

@@ -75,6 +75,7 @@ async def health_check():
     try:
         from sqlalchemy import text
         from app.db.session import engine
+        from app.core.config import settings
         
         # Check if reporting tables exist
         with engine.connect() as conn:
@@ -86,25 +87,39 @@ async def health_check():
             """))
             tables = [row[0] for row in result.fetchall()]
             
+            # Get row counts for each table
+            table_counts = {}
+            for table in tables:
+                try:
+                    count_result = conn.execute(text(f'SELECT COUNT(*) FROM {table}'))
+                    table_counts[table] = count_result.fetchone()[0]
+                except Exception as e:
+                    table_counts[table] = f"Error: {str(e)}"
+            
             if len(tables) == 4:
                 return {
                     "status": "healthy",
                     "database": "connected",
+                    "database_url": settings.DATABASE_URL[:50] + "..." if len(settings.DATABASE_URL) > 50 else settings.DATABASE_URL,
                     "reporting_tables": "all_present",
-                    "tables": tables
+                    "tables": tables,
+                    "table_counts": table_counts
                 }
             else:
                 return {
                     "status": "degraded",
                     "database": "connected",
+                    "database_url": settings.DATABASE_URL[:50] + "..." if len(settings.DATABASE_URL) > 50 else settings.DATABASE_URL,
                     "reporting_tables": "missing",
                     "expected": 4,
                     "found": len(tables),
-                    "tables": tables
+                    "tables": tables,
+                    "table_counts": table_counts
                 }
     except Exception as e:
         return {
             "status": "unhealthy",
             "database": "error",
+            "database_url": settings.DATABASE_URL[:50] + "..." if len(settings.DATABASE_URL) > 50 else settings.DATABASE_URL,
             "error": str(e)
         }
