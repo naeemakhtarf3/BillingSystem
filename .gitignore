@@ -27,9 +27,74 @@ build/
 .history/
 *.iml
 *.suo
-*.db
+# Python cache files
 *.pyc
-__pycache__/
 *.pyo
 *.pyd
+__pycache__/
+*.cpython-*.pyc
+
+# Python bytecode
+*.py[cod]
+*$py.class
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
 backend/clinic_billing.db
+clinic_billing.db
+
+# Specific cache files to exclude
+backend/app/__pycache__/
+backend/app/api/__pycache__/
+backend/app/api/api_v1/__pycache__/
+backend/app/api/api_v1/endpoints/__pycache__/
+backend/app/core/__pycache__/
+backend/app/db/__pycache__/
+backend/app/models/__pycache__/
+backend/app/schemas/__pycache__/
+backend/app/services/__pycache__/
+backend/app/agents/__pycache__/
+backend/alembic/__pycache__/
+backend/alembic/versions/__pycache__/
+backend/scripts/__pycache__/
+backend/tests/__pycache__/
+
+# Specific files mentioned
+main.cpython-313.pyc
+api.cpython-313.pyc
+config.cpython-313.pyc
+security.cpython-313.pyc
+audit_service.cpython-313.pyc
+
+# Additional Python cache patterns
+*.cpython-*.pyc
+*.cpython-*.pyo
+*.cpython-*.pyd
+
+# Virtual environments
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp

@@ -5,9 +5,7 @@ services:
     plan: free
     buildCommand: |
       pip install -r backend/requirements.txt
-      cd backend && alembic upgrade head
-      cd backend && python create_sample_data.py
-      cd backend && python etl.py
+      cd backend && python deploy_setup.py
       cd frontend && npm install && npm run build
       mkdir -p backend/static && cp -r dist/* backend/static/
     startCommand: cd backend && python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
@@ -40,6 +38,8 @@ services:
         value: no-reply@clinic.com
       - key: CORS_ORIGINS
         value: https://billingsystem-gm9s.onrender.com,http://localhost:5173,http://localhost:5174
+      - key: ENVIRONMENT
+        value: production
 
 databases:
   - name: clinic-billing-db

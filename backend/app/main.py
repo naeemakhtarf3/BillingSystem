@@ -43,12 +43,24 @@ app.mount("/agent", agent_app)
 async def startup_event():
     """Initialize ETL data on startup"""
     try:
-        logging.getLogger("uvicorn.error").info("Running initial ETL process...")
-        etl_service = ETLService()
-        etl_service.run_for_range(None, None)
-        logging.getLogger("uvicorn.error").info("ETL process completed successfully")
+        logger = logging.getLogger("uvicorn.error")
+        logger.info("Starting application initialization...")
+        logger.info(f"Database URL: {settings.DATABASE_URL}")
+        
+        # Check if we're in production
+        if settings.ENVIRONMENT != "local":
+            logger.info("Production environment detected - running ETL process...")
+            etl_service = ETLService()
+            etl_service.run_for_range(None, None)
+            logger.info("ETL process completed successfully")
+        else:
+            logger.info("Local environment - skipping ETL process")
+            
     except Exception as e:
-        logging.getLogger("uvicorn.error").error(f"ETL process failed: {e}")
+        logger = logging.getLogger("uvicorn.error")
+        logger.error(f"Startup process failed: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
         # Don't fail startup if ETL fails
 
 
@@ -59,4 +71,40 @@ async def root():
 
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy"}
+    """Health check endpoint that verifies database tables exist"""
+    try:
+        from sqlalchemy import text
+        from app.db.session import engine
+        
+        # Check if reporting tables exist
+        with engine.connect() as conn:
+            result = conn.execute(text("""
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_schema = 'public' 
+                AND table_name IN ('revenue_metrics', 'patient_payment_history', 'outstanding_payments', 'etl_process_status')
+            """))
+            tables = [row[0] for row in result.fetchall()]
+            
+            if len(tables) == 4:
+                return {
+                    "status": "healthy",
+                    "database": "connected",
+                    "reporting_tables": "all_present",
+                    "tables": tables
+                }
+            else:
+                return {
+                    "status": "degraded",
+                    "database": "connected",
+                    "reporting_tables": "missing",
+                    "expected": 4,
+                    "found": len(tables),
+                    "tables": tables
+                }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "database": "error",
+            "error": str(e)
+        }
