@@ -74,15 +74,54 @@ def trigger_etl(
     from_date: str | None = Query(None),
     to_date: str | None = Query(None),
 ):
-    svc = ETLService()
-    # naive parse; in practice validate
-    f = from_date
-    t = to_date
-    if f or t:
-        from datetime import datetime
-        f = datetime.fromisoformat(f) if f else None
-        t = datetime.fromisoformat(t) if t else None
-    svc.run_for_range(from_date=f, to_date=t)
-    return {"status": "ok"}
+    """Manually trigger ETL process"""
+    try:
+        svc = ETLService()
+        # naive parse; in practice validate
+        f = from_date
+        t = to_date
+        if f or t:
+            from datetime import datetime
+            f = datetime.fromisoformat(f) if f else None
+            t = datetime.fromisoformat(t) if t else None
+        svc.run_for_range(from_date=f, to_date=t)
+        return {"status": "ok", "message": "ETL process completed successfully"}
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+@router.post("/etl/setup")
+def setup_production_data():
+    """Setup production data - run migrations and ETL"""
+    try:
+        import subprocess
+        import os
+        
+        # Change to backend directory
+        backend_dir = os.path.join(os.getcwd(), 'backend')
+        if not os.path.exists(backend_dir):
+            backend_dir = os.getcwd()
+        
+        # Run migrations
+        result = subprocess.run(
+            ["alembic", "upgrade", "head"], 
+            cwd=backend_dir, 
+            capture_output=True, 
+            text=True
+        )
+        
+        if result.returncode != 0:
+            return {"status": "error", "message": f"Migration failed: {result.stderr}"}
+        
+        # Run ETL
+        svc = ETLService()
+        svc.run_for_range(None, None)
+        
+        return {
+            "status": "ok", 
+            "message": "Production setup completed successfully",
+            "migration_output": result.stdout
+        }
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
 
 

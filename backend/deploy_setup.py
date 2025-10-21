@@ -39,6 +39,8 @@ def run_command(command, description, required=True):
 def check_database_connection():
     """Check if database connection is working"""
     try:
+        # Add current directory to Python path
+        sys.path.insert(0, os.getcwd())
         from app.core.config import settings
         from app.db.session import engine
         
@@ -49,6 +51,8 @@ def check_database_connection():
             return True
     except Exception as e:
         logger.error(f"❌ Database connection failed: {e}")
+        logger.error(f"Current working directory: {os.getcwd()}")
+        logger.error(f"Python path: {sys.path}")
         return False
 
 def main():
@@ -91,6 +95,7 @@ def main():
     
     # Final database check
     try:
+        sys.path.insert(0, os.getcwd())
         from app.db.session import engine
         with engine.connect() as conn:
             # Check if reporting tables exist
@@ -109,6 +114,8 @@ def main():
                 
     except Exception as e:
         logger.error(f"❌ Final database check failed: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
 
 if __name__ == "__main__":
     main()
