@@ -157,8 +157,8 @@ class ETLService:
             text(
                 """
                 SELECT invoice_id,
-                       COALESCE(SUM(CASE WHEN status = 'succeeded' THEN amount_cents ELSE 0 END), 0) AS paid_cents,
-                       MAX(CASE WHEN status = 'succeeded' THEN received_at END) AS last_paid_at
+                       COALESCE(SUM(CASE WHEN status = 'SUCCEEDED' THEN amount_cents ELSE 0 END), 0) AS paid_cents,
+                       MAX(CASE WHEN status = 'SUCCEEDED' THEN received_at END) AS last_paid_at
                 FROM payments
                 GROUP BY invoice_id
                 """
