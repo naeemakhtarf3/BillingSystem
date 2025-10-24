@@ -18,6 +18,12 @@ import PaymentSuccess from './pages/patient/PaymentSuccess'
 import PaymentCancelled from './pages/patient/PaymentCancelled'
 import SimpleAITest from './components/SimpleAITest'
 import SimpleAIChat from './components/SimpleAIChat'
+// Patient Admission and Discharge Workflow System
+import RoomManagement from './pages/staff/RoomManagement'
+import AdmitPatient from './pages/staff/AdmitPatient'
+import ActiveAdmissions from './pages/staff/ActiveAdmissions'
+import DischargePatient from './pages/staff/DischargePatient'
+import RoomMaintenance from './pages/staff/RoomMaintenance'
 
 function App() {
   return (
@@ -36,12 +42,18 @@ function App() {
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="patients" element={<Patients />} />
             <Route path="patients/:id" element={<PatientDetail />} />
-          <Route path="invoices" element={<Invoices />} />
-          <Route path="payments" element={<Payments />} />
-          <Route path="audit" element={<Audit />} />
-          <Route path="reports" element={<Reports />} />
-          <Route path="ai-test" element={<SimpleAITest />} />
-          <Route path="ai-chat" element={<SimpleAIChat />} />
+            <Route path="invoices" element={<Invoices />} />
+            <Route path="payments" element={<Payments />} />
+            <Route path="audit" element={<Audit />} />
+            <Route path="reports" element={<Reports />} />
+            <Route path="ai-test" element={<SimpleAITest />} />
+            <Route path="ai-chat" element={<SimpleAIChat />} />
+            {/* Patient Admission and Discharge Workflow System Routes */}
+            <Route path="rooms" element={<RoomManagement />} />
+            <Route path="admissions/new" element={<AdmitPatient />} />
+            <Route path="admissions" element={<ActiveAdmissions />} />
+            <Route path="discharge" element={<DischargePatient />} />
+            <Route path="maintenance" element={<RoomMaintenance />} />
           </Route>
 
           {/* Patient Routes - These must come before catch-all */}
