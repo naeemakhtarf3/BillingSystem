@@ -1,0 +1,19 @@
+{
+  "name": "clinic-billing-tests",
+  "version": "1.0.0",
+  "description": "Playwright tests for clinic billing system",
+  "type": "module",
+  "scripts": {
+    "test": "playwright test --config=playwright.config.manual.ts",
+    "test:ui": "playwright test --config=playwright.config.manual.ts --ui",
+    "test:headed": "playwright test --config=playwright.config.manual.ts --headed",
+    "test:debug": "playwright test --config=playwright.config.manual.ts --debug",
+    "test:report": "playwright show-report",
+    "test:auto": "playwright test",
+    "test:auto:ui": "playwright test --ui",
+    "test:auto:headed": "playwright test --headed"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.40.0"
+  }
+}

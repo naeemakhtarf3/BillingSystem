@@ -36,11 +36,11 @@ class ETLService:
                 # Stop processing and alert administrators
                 try:
                     mailer = get_mailer()
-                    mailer.send_email(
-                        to=settings.EMAIL_FROM_ADDRESS,
-                        subject="ETL Failure Alert",
-                        body=f"ETL failed: {e}",
-                    )
+                    #mailer.send_email(
+                    #    to=settings.EMAIL_FROM_ADDRESS,
+                    #    subject="ETL Failure Alert",
+                    #    body=f"ETL failed: {e}",
+                    #)
                 except Exception:
                     pass
                 raise
