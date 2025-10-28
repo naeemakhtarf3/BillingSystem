@@ -115,6 +115,139 @@ class AdmissionService:
         
         return query.offset(skip).limit(limit).all()
     
+    def get_admissions_with_details(self, patient_id: Optional[str] = None, room_id: Optional[int] = None, 
+                                   status: Optional[AdmissionStatus] = None, skip: int = 0, limit: int = 100) -> List[dict]:
+        """
+        Get admissions with patient and room details.
+        
+        Args:
+            patient_id: Optional patient ID filter
+            room_id: Optional room ID filter
+            status: Optional status filter
+            skip: Number of records to skip
+            limit: Maximum number of records to return
+            
+        Returns:
+            List of admission dictionaries with details
+        """
+        from app.models.patient import Patient
+        from app.models.staff import Staff
+        
+        # First get the admissions
+        query = self.db.query(Admission)
+        
+        if patient_id:
+            query = query.filter(Admission.patient_id == patient_id)
+        if room_id:
+            query = query.filter(Admission.room_id == room_id)
+        if status:
+            query = query.filter(Admission.status == status)
+        
+        admissions = query.offset(skip).limit(limit).all()
+        
+        # Convert to dictionary format with details
+        result = []
+        for admission in admissions:
+            # Get room details
+            room = self.db.query(Room).filter(Room.id == admission.room_id).first()
+            
+            # Get patient details - handle UUID conversion
+            patient = None
+            if admission.patient_id:
+                try:
+                    import uuid
+                    # Handle different UUID formats
+                    patient_id_str = str(admission.patient_id)
+                    
+                    # If it's a UUID with hyphens, convert to UUID object
+                    if len(patient_id_str) == 36 and patient_id_str.count('-') == 4:
+                        patient_uuid = uuid.UUID(patient_id_str)
+                    # If it's a UUID without hyphens, add hyphens and convert
+                    elif len(patient_id_str) == 32 and patient_id_str.count('-') == 0:
+                        # Add hyphens to make it a proper UUID format
+                        formatted_uuid = f"{patient_id_str[:8]}-{patient_id_str[8:12]}-{patient_id_str[12:16]}-{patient_id_str[16:20]}-{patient_id_str[20:]}"
+                        patient_uuid = uuid.UUID(formatted_uuid)
+                    else:
+                        # Try to query directly with the string
+                        patient = self.db.query(Patient).filter(Patient.id == patient_id_str).first()
+                        continue
+                    
+                    patient = self.db.query(Patient).filter(Patient.id == patient_uuid).first()
+                except (ValueError, TypeError) as e:
+                    print(f"Error converting patient_id {admission.patient_id}: {e}")
+                    # Try direct string query as fallback
+                    try:
+                        patient = self.db.query(Patient).filter(Patient.id == str(admission.patient_id)).first()
+                    except:
+                        patient = None
+            
+            # Get staff details - handle UUID conversion
+            staff = None
+            if admission.staff_id:
+                try:
+                    import uuid
+                    # Handle different UUID formats
+                    staff_id_str = str(admission.staff_id)
+                    
+                    # If it's a UUID with hyphens, convert to UUID object
+                    if len(staff_id_str) == 36 and staff_id_str.count('-') == 4:
+                        staff_uuid = uuid.UUID(staff_id_str)
+                    # If it's a UUID without hyphens, add hyphens and convert
+                    elif len(staff_id_str) == 32 and staff_id_str.count('-') == 0:
+                        # Add hyphens to make it a proper UUID format
+                        formatted_uuid = f"{staff_id_str[:8]}-{staff_id_str[8:12]}-{staff_id_str[12:16]}-{staff_id_str[16:20]}-{staff_id_str[20:]}"
+                        staff_uuid = uuid.UUID(formatted_uuid)
+                    else:
+                        # Try to query directly with the string
+                        staff = self.db.query(Staff).filter(Staff.id == staff_id_str).first()
+                        continue
+                    
+                    staff = self.db.query(Staff).filter(Staff.id == staff_uuid).first()
+                except (ValueError, TypeError) as e:
+                    print(f"Error converting staff_id {admission.staff_id}: {e}")
+                    # Try direct string query as fallback
+                    try:
+                        staff = self.db.query(Staff).filter(Staff.id == str(admission.staff_id)).first()
+                    except:
+                        staff = None
+            
+            admission_dict = {
+                'id': admission.id,
+                'room_id': admission.room_id,
+                'patient_id': admission.patient_id,
+                'staff_id': admission.staff_id,
+                'admission_date': admission.admission_date,
+                'discharge_date': admission.discharge_date,
+                'discharge_reason': admission.discharge_reason,
+                'discharge_notes': admission.discharge_notes,
+                'invoice_id': admission.invoice_id,
+                'status': admission.status,
+                'created_at': admission.created_at,
+                'updated_at': admission.updated_at,
+                'room': {
+                    'id': room.id if room else None,
+                    'room_number': room.room_number if room else None,
+                    'type': room.type if room else None,
+                    'status': room.status if room else None,
+                    'daily_rate_cents': room.daily_rate_cents if room else None
+                } if room else None,
+                'patient': {
+                    'id': patient.id if patient else None,
+                    'name': patient.name if patient else None,
+                    'email': patient.email if patient else None,
+                    'phone': patient.phone if patient else None
+                } if patient else None,
+                'staff': {
+                    'id': staff.id if staff else None,
+                    'name': staff.name if staff else None,
+                    'email': staff.email if staff else None,
+                    'role': staff.role if staff else None
+                } if staff else None
+            }
+            result.append(admission_dict)
+        
+        return result
+    
     def get_active_admissions(self, skip: int = 0, limit: int = 100) -> List[Admission]:
         """
         Get active admissions.

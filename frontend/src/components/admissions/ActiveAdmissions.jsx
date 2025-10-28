@@ -318,7 +318,7 @@ const ActiveAdmissions = () => {
                           </Avatar>
                           <Box>
                             <Typography variant="body2" fontWeight="medium">
-                              Patient #{admission.patient_id}
+                              {admission.patient?.name || `Patient #${admission.patient_id}`}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
                               ID: {admission.id}
@@ -331,7 +331,7 @@ const ActiveAdmissions = () => {
                           <RoomIcon />
                           <Box>
                             <Typography variant="body2" fontWeight="medium">
-                              Room {admission.room?.room_number || 'Unknown'}
+                              Room {admission.room?.room_number || `Room #${admission.room_id}`}
                             </Typography>
                             <Chip
                               label={admission.room?.type?.toUpperCase() || 'UNKNOWN'}

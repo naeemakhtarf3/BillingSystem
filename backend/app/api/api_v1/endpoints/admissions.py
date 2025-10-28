@@ -12,7 +12,7 @@ from typing import List, Optional
 from app.db.session import get_db
 from app.schemas.admission import (
     Admission, AdmissionCreate, AdmissionUpdate, AdmissionListResponse,
-    DischargeRequest, DischargeResponse, AdmissionFilter
+    DischargeRequest, DischargeResponse, AdmissionFilter, AdmissionWithDetails
 )
 from app.models.admission import AdmissionStatus
 from app.services.admission_service import AdmissionService
@@ -234,7 +234,7 @@ def discharge_patient(admission_id: int, discharge_data: DischargeRequest, db: S
         raise HTTPException(status_code=500, detail=f"Error discharging patient: {str(e)}")
 
 
-@router.get("/active/list", response_model=List[Admission])
+@router.get("/active/list", response_model=List[AdmissionWithDetails])
 def get_active_admissions(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of records to return"),
@@ -253,11 +253,11 @@ def get_active_admissions(
         db: Database session
 
     Returns:
-        List of active admissions
+        List of active admissions with details
     """
     try:
         admission_service = AdmissionService(db)
-        admissions = admission_service.get_admissions(
+        admissions = admission_service.get_admissions_with_details(
             patient_id=patient_id,
             room_id=room_id,
             status=AdmissionStatus.ACTIVE,

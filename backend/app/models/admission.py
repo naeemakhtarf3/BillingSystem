@@ -54,9 +54,11 @@ class Admission(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
     version = Column(Integer, nullable=False, default=1)  # Optimistic locking version
     
-    # Relationships - commented out to avoid circular import issues
-    # room = relationship("Room", back_populates="admissions")
-    # Note: Patient, Staff, and Invoice relationships would be defined in their respective models
+    # Relationships
+    room = relationship("Room", back_populates="admissions")
+    patient = relationship("Patient", foreign_keys=[patient_id], primaryjoin="Admission.patient_id == Patient.id")
+    staff = relationship("Staff", foreign_keys=[staff_id], primaryjoin="Admission.staff_id == Staff.id")
+    invoice = relationship("Invoice", back_populates="admission")
     
     def __repr__(self):
         return f"<Admission(id={self.id}, room_id={self.room_id}, patient_id={self.patient_id}, status='{self.status}')>"

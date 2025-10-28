@@ -52,8 +52,8 @@ class Room(Base):
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
     version = Column(Integer, nullable=False, default=1)  # Optimistic locking version
     
-    # Relationships - commented out to avoid circular import issues
-    # admissions = relationship("Admission", back_populates="room", cascade="all, delete-orphan")
+    # Relationships
+    admissions = relationship("Admission", back_populates="room", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<Room(id={self.id}, room_number='{self.room_number}', type='{self.type}', status='{self.status}')>"

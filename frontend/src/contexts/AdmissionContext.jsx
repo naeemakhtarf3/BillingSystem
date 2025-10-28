@@ -77,9 +77,56 @@ export const AdmissionProvider = ({ children }) => {
       dispatch({ type: 'CLEAR_ERROR' });
       
       const response = await admissionService.getActiveAdmissions(params);
-      dispatch({ type: 'SET_ACTIVE_ADMISSIONS', payload: response });
+      
+      // Enrich admissions with patient and room data
+      const enrichedAdmissions = await enrichAdmissionsWithDetails(response);
+      
+      dispatch({ type: 'SET_ACTIVE_ADMISSIONS', payload: enrichedAdmissions });
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: error.message });
+    }
+  };
+
+  const enrichAdmissionsWithDetails = async (admissions) => {
+    try {
+      // Import patient and room services
+      const patientService = (await import('../services/patientApi')).default;
+      const roomService = (await import('../services/roomApi')).default;
+      
+      const enrichedAdmissions = await Promise.all(
+        admissions.map(async (admission) => {
+          const enrichedAdmission = { ...admission };
+          
+          // Fetch patient details if not already present
+          if (!admission.patient && admission.patient_id) {
+            try {
+              const patient = await patientService.getPatient(admission.patient_id);
+              enrichedAdmission.patient = patient;
+            } catch (error) {
+              console.warn(`Failed to fetch patient ${admission.patient_id}:`, error);
+              enrichedAdmission.patient = null;
+            }
+          }
+          
+          // Fetch room details if not already present
+          if (!admission.room && admission.room_id) {
+            try {
+              const room = await roomService.getRoom(admission.room_id);
+              enrichedAdmission.room = room;
+            } catch (error) {
+              console.warn(`Failed to fetch room ${admission.room_id}:`, error);
+              enrichedAdmission.room = null;
+            }
+          }
+          
+          return enrichedAdmission;
+        })
+      );
+      
+      return enrichedAdmissions;
+    } catch (error) {
+      console.error('Error enriching admissions:', error);
+      return admissions; // Return original data if enrichment fails
     }
   };
 
