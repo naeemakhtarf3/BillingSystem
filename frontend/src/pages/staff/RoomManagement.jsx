@@ -13,11 +13,6 @@ const RoomManagement = () => {
           <Grid item xs={12}>
             <RoomDashboard />
           </Grid>
-          
-          {/* Room List */}
-          <Grid item xs={12}>
-            <RoomList />
-          </Grid>
         </Grid>
       </Box>
     </RoomProvider>

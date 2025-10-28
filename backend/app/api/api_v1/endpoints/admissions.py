@@ -14,16 +14,14 @@ from app.schemas.admission import (
     Admission, AdmissionCreate, AdmissionUpdate, AdmissionListResponse,
     DischargeRequest, DischargeResponse, AdmissionFilter
 )
+from app.models.admission import AdmissionStatus
 from app.services.admission_service import AdmissionService
 from app.models.room import Room
 from app.core.auth import (
     get_current_user, require_permission, require_admission_creation,
     Permission, User
 )
-from app.core.exceptions import (
-    RoomNotAvailableException, PatientAlreadyAdmittedException,
-    ValidationException
-)
+from app.utils.id_mapping import map_request_ids
 
 router = APIRouter()
 
@@ -31,7 +29,7 @@ router = APIRouter()
 @router.get("/", response_model=AdmissionListResponse)
 def get_admissions(
     status: Optional[str] = Query(None, description="Filter by admission status"),
-    patient_id: Optional[int] = Query(None, description="Filter by patient ID"),
+    patient_id: Optional[str] = Query(None, description="Filter by patient ID"),
     room_id: Optional[int] = Query(None, description="Filter by room ID"),
     active_only: bool = Query(False, description="Show only active admissions"),
     skip: int = Query(0, ge=0, description="Number of records to skip"),
@@ -134,34 +132,33 @@ def create_admission(
     try:
         admission_service = AdmissionService(db)
         
-        # Pre-validate all components
+        # Pre-validate all components before attempting creation
         room_service = db.query(Room).filter(Room.id == admission_data.room_id).first()
         if not room_service:
-            raise RoomNotAvailableException(admission_data.room_id, "Room not found")
+            raise HTTPException(status_code=400, detail=f"Room with ID {admission_data.room_id} not found")
         
         # Check room availability
-        room_availability = admission_service.room_service.validate_room_availability(admission_data.room_id)
+        room_availability = admission_service.validate_room_availability(admission_data.room_id)
         if not room_availability.get('available', False):
-            raise RoomNotAvailableException(admission_data.room_id, room_availability.get('reason', 'Room not available'))
+            raise HTTPException(status_code=400, detail=room_availability.get('reason', 'Room not available'))
         
         # Check patient eligibility
         patient_eligibility = admission_service.check_patient_eligibility(admission_data.patient_id)
         if not patient_eligibility.get('eligible', False):
-            raise PatientAlreadyAdmittedException(admission_data.patient_id, patient_eligibility.get('reason', 'Patient not eligible'))
+            raise HTTPException(status_code=400, detail=patient_eligibility.get('reason', 'Patient not eligible'))
         
         # Check staff authorization
         staff_authorization = admission_service.check_staff_authorization(admission_data.staff_id)
         if not staff_authorization.get('authorized', False):
-            raise ValidationException('staff_id', admission_data.staff_id, staff_authorization.get('reason', 'Staff not authorized'))
+            raise HTTPException(status_code=400, detail=staff_authorization.get('reason', 'Staff not authorized'))
         
-        # Create admission
+        # Create admission - this should not fail validation errors since we pre-validated
         admission = admission_service.create_admission(admission_data)
         return admission
         
-    except (RoomNotAvailableException, PatientAlreadyAdmittedException, ValidationException) as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        # Re-raise HTTP exceptions as-is
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error creating admission: {str(e)}")
 
@@ -220,8 +217,20 @@ def discharge_patient(admission_id: int, discharge_data: DischargeRequest, db: S
             billing_summary=result['billing_summary']
         )
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        # Provide more specific error messages for common validation issues
+        error_message = str(e)
+        if "Discharge date cannot be more than" in error_message:
+            raise HTTPException(status_code=400, detail=f"Invalid discharge date: {error_message}")
+        elif "Admission with ID" in error_message and "not found" in error_message:
+            raise HTTPException(status_code=404, detail=f"Admission not found: {error_message}")
+        elif "cannot be discharged" in error_message:
+            raise HTTPException(status_code=400, detail=f"Cannot discharge patient: {error_message}")
+        else:
+            raise HTTPException(status_code=400, detail=f"Validation error: {error_message}")
     except Exception as e:
+        # Log the full error for debugging
+        import logging
+        logging.error(f"Error discharging patient {admission_id}: {str(e)}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Error discharging patient: {str(e)}")
 
 
@@ -229,31 +238,32 @@ def discharge_patient(admission_id: int, discharge_data: DischargeRequest, db: S
 def get_active_admissions(
     skip: int = Query(0, ge=0, description="Number of records to skip"),
     limit: int = Query(100, ge=1, le=1000, description="Maximum number of records to return"),
-    patient_id: Optional[int] = Query(None, description="Filter by patient ID"),
+    patient_id: Optional[str] = Query(None, description="Filter by patient ID"),
     room_id: Optional[int] = Query(None, description="Filter by room ID"),
     db: Session = Depends(get_db)
 ):
     """
     Get active admissions with optional filtering.
-    
+
     Args:
         skip: Number of records to skip
         limit: Maximum number of records to return
         patient_id: Optional patient ID filter
         room_id: Optional room ID filter
         db: Database session
-        
+
     Returns:
         List of active admissions
     """
     try:
         admission_service = AdmissionService(db)
-        filters = {
-            'status': 'active',
-            'patient_id': patient_id,
-            'room_id': room_id
-        }
-        admissions = admission_service.get_admissions(filters=filters, skip=skip, limit=limit)
+        admissions = admission_service.get_admissions(
+            patient_id=patient_id,
+            room_id=room_id,
+            status=AdmissionStatus.ACTIVE,
+            skip=skip,
+            limit=limit
+        )
         return admissions
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving active admissions: {str(e)}")
@@ -332,40 +342,3 @@ def get_room_admissions(
         raise HTTPException(status_code=500, detail=f"Error retrieving room admissions: {str(e)}")
 
 
-@router.post("/{admission_id}/discharge", response_model=DischargeResponse)
-def discharge_patient(
-    admission_id: int, 
-    discharge_request: DischargeRequest, 
-    db: Session = Depends(get_db)
-):
-    """
-    Discharge a patient from an admission.
-    
-    Args:
-        admission_id: Admission ID
-        discharge_request: Discharge request data
-        db: Database session
-        
-    Returns:
-        Discharge summary with billing information
-        
-    Raises:
-        HTTPException: If admission not found or cannot be discharged
-    """
-    try:
-        admission_service = AdmissionService(db)
-        discharge_summary = admission_service.discharge_patient(admission_id, discharge_request)
-        
-        return DischargeResponse(
-            admission_id=discharge_summary['admission'].id,
-            patient_id=discharge_summary['admission'].patient_id,
-            room_id=discharge_summary['admission'].room_id,
-            discharge_date=discharge_summary['admission'].discharge_date,
-            billing_summary=discharge_summary['billing_summary'],
-            invoice_id=discharge_summary['invoice']['id'],
-            room_status_updated=True
-        )
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Error discharging patient: {str(e)}")

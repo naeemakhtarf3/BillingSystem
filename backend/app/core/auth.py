@@ -12,6 +12,7 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import jwt
 from datetime import datetime, timedelta
 from app.core.config import settings
+from app.core.security import verify_token as security_verify_token
 
 # Security scheme
 security = HTTPBearer()
@@ -119,13 +120,19 @@ def verify_token(token: str) -> dict:
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> User:
     """Get current authenticated user."""
     token = credentials.credentials
-    payload = verify_token(token)
+    payload = security_verify_token(token)
     
-    user_id = payload.get("user_id")
-    username = payload.get("username")
+    if not payload:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token"
+        )
+    
+    user_id = payload.get("sub")  # JWT standard uses 'sub' for subject
+    username = payload.get("username", "unknown")  # Default username if not present
     role_str = payload.get("role")
     
-    if not all([user_id, username, role_str]):
+    if not all([user_id, role_str]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token payload"

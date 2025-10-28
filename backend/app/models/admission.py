@@ -5,7 +5,7 @@ This module defines the Admission entity representing patient stays in rooms
 with billing linkage and proper status management.
 """
 
-from sqlalchemy import Column, Integer, String, DateTime, Enum, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, Enum, ForeignKey, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
@@ -30,6 +30,8 @@ class Admission(Base):
         staff_id: Reference to existing Staff (who processed admission)
         admission_date: When patient was admitted
         discharge_date: When patient was discharged (nullable)
+        discharge_reason: Reason for discharge (nullable)
+        discharge_notes: Additional discharge notes (nullable)
         invoice_id: Reference to generated Invoice (nullable)
         status: Current status (active, discharged)
         created_at: Record creation timestamp
@@ -40,10 +42,12 @@ class Admission(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     room_id = Column(Integer, ForeignKey("room.id"), nullable=False, index=True)
-    patient_id = Column(Integer, ForeignKey("patients.id"), nullable=False, index=True)
-    staff_id = Column(Integer, ForeignKey("staff.id"), nullable=False, index=True)
+    patient_id = Column(String, nullable=False, index=True)
+    staff_id = Column(String, nullable=False, index=True)
     admission_date = Column(DateTime(timezone=True), nullable=False, index=True)
     discharge_date = Column(DateTime(timezone=True), nullable=True, index=True)
+    discharge_reason = Column(String, nullable=True, index=True)
+    discharge_notes = Column(Text, nullable=True)
     invoice_id = Column(Integer, ForeignKey("invoices.id"), nullable=True, index=True)
     status = Column(Enum(AdmissionStatus), nullable=False, default=AdmissionStatus.ACTIVE, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)

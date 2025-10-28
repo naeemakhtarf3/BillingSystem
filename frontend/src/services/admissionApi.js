@@ -12,7 +12,7 @@ const admissionApi = axios.create({
 // Request interceptor to add auth token if available
 admissionApi.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('auth_token');
+    const token = localStorage.getItem('access_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -29,14 +29,15 @@ admissionApi.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       // Handle unauthorized access
-      localStorage.removeItem('auth_token');
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
       window.location.href = '/login';
     }
     return Promise.reject(error);
   }
 );
 
-export const admissionService = {
+const admissionService = {
   // Get all admissions with optional filtering
   getAdmissions: async (params = {}) => {
     try {
@@ -184,6 +185,16 @@ export const admissionService = {
       return response.data;
     } catch (error) {
       throw new Error(error.response?.data?.detail || 'Failed to fetch discharged admissions');
+    }
+  },
+
+  // Get admission statistics
+  getAdmissionStatistics: async () => {
+    try {
+      const response = await admissionApi.get('/active/statistics');
+      return response.data;
+    } catch (error) {
+      throw new Error(error.response?.data?.detail || 'Failed to fetch admission statistics');
     }
   }
 };

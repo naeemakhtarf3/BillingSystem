@@ -22,9 +22,9 @@ class RoomType(str, enum.Enum):
 
 class RoomStatus(str, enum.Enum):
     """Room status enumeration."""
-    AVAILABLE = "available"
-    OCCUPIED = "occupied"
-    MAINTENANCE = "maintenance"
+    AVAILABLE = "AVAILABLE"
+    OCCUPIED = "OCCUPIED"
+    MAINTENANCE = "MAINTENANCE"
 
 
 class Room(Base):

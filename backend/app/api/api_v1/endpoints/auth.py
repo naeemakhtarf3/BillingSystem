@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Body, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from datetime import timedelta
+from typing import List
 from app.db.session import get_db
 from app.models.staff import Staff
 from app.schemas.auth import Token, LoginRequest
@@ -155,6 +156,11 @@ def refresh_token(refresh_token: dict = Body(...), db: Session = Depends(get_db)
 @router.get("/me", response_model=StaffResponse)
 def get_current_staff_info(current_staff: Staff = Depends(get_current_staff)):
     return current_staff
+
+@router.get("/staff", response_model=List[StaffResponse])
+def get_staff(db: Session = Depends(get_db), current_staff: Staff = Depends(get_current_staff)):
+    staff = db.query(Staff).all()
+    return staff
 
 @router.get("/debug/staff")
 def debug_staff(db: Session = Depends(get_db)):

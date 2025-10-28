@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect } from 'react';
-import { admissionService } from '../services/admissionApi';
+import admissionService from '../services/admissionApi';
 
 const AdmissionContext = createContext();
 
@@ -169,6 +169,32 @@ export const AdmissionProvider = ({ children }) => {
     dispatch({ type: 'SET_SELECTED_ADMISSION', payload: admission });
   };
 
+  const fetchDischargedAdmissions = async (params = {}) => {
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      dispatch({ type: 'CLEAR_ERROR' });
+      
+      const response = await admissionService.getDischargedAdmissions(params);
+      return response;
+    } catch (error) {
+      dispatch({ type: 'SET_ERROR', payload: error.message });
+      throw error;
+    }
+  };
+
+  const getAdmissionStatistics = async () => {
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+      dispatch({ type: 'CLEAR_ERROR' });
+      
+      const response = await admissionService.getAdmissionStatistics();
+      return response;
+    } catch (error) {
+      dispatch({ type: 'SET_ERROR', payload: error.message });
+      throw error;
+    }
+  };
+
   const clearError = () => {
     dispatch({ type: 'CLEAR_ERROR' });
   };
@@ -177,12 +203,14 @@ export const AdmissionProvider = ({ children }) => {
     ...state,
     fetchAdmissions,
     fetchActiveAdmissions,
+    fetchDischargedAdmissions,
     createAdmission,
     updateAdmission,
     dischargePatient,
     getAdmission,
     getPatientAdmissions,
     getRoomAdmissions,
+    getAdmissionStatistics,
     selectAdmission,
     clearError
   };

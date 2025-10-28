@@ -33,7 +33,7 @@ import {
   LocationOn as LocationIcon
 } from '@mui/icons-material';
 
-const AdmissionDetails = ({ admission, open, onClose }) => {
+const AdmissionDetails = ({ admission, open, onClose, handleDischargePatient }) => {
   if (!admission) return null;
 
   const formatDate = (dateString) => {
@@ -293,9 +293,11 @@ const AdmissionDetails = ({ admission, open, onClose }) => {
                 color="error"
                 startIcon={<DischargeIcon />}
                 disabled={admission.status !== 'active'}
+                onClick={() => handleDischargePatient(admission)}
               >
                 Discharge Patient
               </Button>
+
               <Button
                 variant="outlined"
                 startIcon={<ReceiptIcon />}

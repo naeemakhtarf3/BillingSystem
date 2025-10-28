@@ -1,10 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { RoomProvider } from '../../contexts/RoomContext';
 import { AdmissionProvider } from '../../contexts/AdmissionContext';
 import AdmissionForm from '../../components/admissions/AdmissionForm';
-import { Box, Paper, Typography } from '@mui/material';
+import { Alert, Box, Paper, Snackbar, Typography } from '@mui/material';
 
 const AdmitPatient = () => {
+  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' })
+
   return (
     <RoomProvider>
       <AdmissionProvider>
@@ -22,12 +24,19 @@ const AdmitPatient = () => {
             onSuccess={(admission) => {
               console.log('Patient admitted successfully:', admission);
               // You can add success notification here
+              setSnackbar({ open: true, message: 'Patient admitted successfully', severity: 'success' })
             }}
             onCancel={() => {
               console.log('Admission cancelled');
               // You can add navigation back to dashboard here
             }}
           />
+          <Snackbar open={snackbar.open} autoHideDuration={4000} onClose={() => setSnackbar(s => ({ ...s, open: false }))}>
+            <Alert onClose={() => setSnackbar(s => ({ ...s, open: false }))} severity={snackbar.severity} sx={{ width: '100%' }}>
+              {snackbar.message}
+            </Alert>
+          </Snackbar>
+
         </Box>
       </AdmissionProvider>
     </RoomProvider>

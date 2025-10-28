@@ -89,7 +89,7 @@ class AdmissionService:
         """
         return self.db.query(Admission).filter(Admission.id == admission_id).first()
     
-    def get_admissions(self, patient_id: Optional[int] = None, room_id: Optional[int] = None, 
+    def get_admissions(self, patient_id: Optional[str] = None, room_id: Optional[int] = None, 
                       status: Optional[AdmissionStatus] = None, skip: int = 0, limit: int = 100) -> List[Admission]:
         """
         Get admissions with optional filtering.
@@ -152,9 +152,11 @@ class AdmissionService:
         # Validate discharge request
         self._validate_discharge_request(discharge_data)
         
-        # Set discharge date
+        # Set discharge date and additional information
         discharge_date = discharge_data.discharge_date or datetime.now()
         admission.discharge_date = discharge_date
+        admission.discharge_reason = getattr(discharge_data, 'discharge_reason', None)
+        admission.discharge_notes = getattr(discharge_data, 'discharge_notes', None)
         admission.status = AdmissionStatus.DISCHARGED
         
         # Update room status to available
@@ -189,9 +191,10 @@ class AdmissionService:
             ValueError: If discharge request is invalid
         """
         if discharge_data.discharge_date:
-            # Validate discharge date is not in the future
-            if discharge_data.discharge_date > datetime.now():
-                raise ValueError("Discharge date cannot be in the future")
+            # Validate discharge date is reasonable (allow up to 7 days in future for planned discharges)
+            max_future = datetime.now() + timedelta(days=7)
+            if discharge_data.discharge_date > max_future:
+                raise ValueError("Discharge date cannot be more than 7 days in the future")
             
             # Validate discharge date is not too far in the past
             if discharge_data.discharge_date < datetime.now() - timedelta(days=30):
@@ -232,7 +235,7 @@ class AdmissionService:
         
         return admission
     
-    def get_admission_count(self, patient_id: Optional[int] = None, room_id: Optional[int] = None, 
+    def get_admission_count(self, patient_id: Optional[str] = None, room_id: Optional[int] = None, 
                            status: Optional[AdmissionStatus] = None) -> int:
         """
         Get total count of admissions matching filters.
@@ -311,16 +314,17 @@ class AdmissionService:
             Invoice details dictionary
         """
         # This would integrate with existing billing system
-        # For now, return a placeholder invoice
+        # For now, return a placeholder invoice with integer ID
+        invoice_id = int(datetime.now().timestamp())
         return {
-            'id': f"INV-{admission.id}-{int(datetime.now().timestamp())}",
+            'id': invoice_id,
             'patient_id': admission.patient_id,
             'total_amount_cents': billing_summary.total_charges_cents,
             'status': 'pending',
             'created_at': datetime.now()
         }
     
-    def validate_patient_for_admission(self, patient_id: int) -> dict:
+    def validate_patient_for_admission(self, patient_id: str) -> dict:
         """
         Validate patient eligibility for admission.
         
@@ -367,7 +371,7 @@ class AdmissionService:
             'patient_status': getattr(patient, 'status', 'active')
         }
     
-    def _get_patient_by_id(self, patient_id: int):
+    def _get_patient_by_id(self, patient_id: str):
         """
         Get patient by ID.
         
@@ -388,11 +392,11 @@ class AdmissionService:
                 self.outstanding_balance = 0
         
         # Mock validation - in real system, query actual Patient table
-        if patient_id > 0:
+        if patient_id and len(patient_id) > 0:
             return MockPatient(patient_id)
         return None
     
-    def get_patient_admission_history(self, patient_id: int) -> List[Admission]:
+    def get_patient_admission_history(self, patient_id: str) -> List[Admission]:
         """
         Get patient's admission history.
         
@@ -406,7 +410,7 @@ class AdmissionService:
             Admission.patient_id == patient_id
         ).order_by(Admission.admission_date.desc()).all()
     
-    def check_patient_eligibility(self, patient_id: int) -> dict:
+    def check_patient_eligibility(self, patient_id: str) -> dict:
         """
         Check if patient is eligible for admission.
         
@@ -430,7 +434,7 @@ class AdmissionService:
                 'reason': str(e)
             }
     
-    def validate_staff_authorization(self, staff_id: int) -> dict:
+    def validate_staff_authorization(self, staff_id: str) -> dict:
         """
         Validate staff authorization for admission operations.
         
@@ -471,7 +475,7 @@ class AdmissionService:
             'status': getattr(staff, 'status', 'active')
         }
     
-    def _get_staff_by_id(self, staff_id: int):
+    def _get_staff_by_id(self, staff_id: str):
         """
         Get staff by ID.
         
@@ -488,16 +492,16 @@ class AdmissionService:
             def __init__(self, staff_id):
                 self.id = staff_id
                 self.name = f"Staff {staff_id}"
-                self.role = "nurse" if staff_id % 2 == 0 else "doctor"
+                self.role = "nurse" if len(staff_id) % 2 == 0 else "doctor"
                 self.status = "active"
                 self.shift_status = "on_duty"
         
         # Mock validation - in real system, query actual Staff table
-        if staff_id > 0:
+        if staff_id and len(staff_id) > 0:
             return MockStaff(staff_id)
         return None
     
-    def check_staff_authorization(self, staff_id: int) -> dict:
+    def check_staff_authorization(self, staff_id: str) -> dict:
         """
         Check if staff is authorized for admission operations.
         
@@ -521,7 +525,7 @@ class AdmissionService:
                 'reason': str(e)
             }
     
-    def get_staff_admission_permissions(self, staff_id: int) -> dict:
+    def get_staff_admission_permissions(self, staff_id: str) -> dict:
         """
         Get staff admission permissions.
         
@@ -573,6 +577,35 @@ class AdmissionService:
             'reason': f'Unknown role: {role}'
         })
     
+    def validate_room_availability(self, room_id: int) -> dict:
+        """
+        Validate if a room is available for admission.
+        
+        Args:
+            room_id: Room ID to validate
+            
+        Returns:
+            Dictionary with availability status and details
+        """
+        room = self.db.query(Room).filter(Room.id == room_id).first()
+        if not room:
+            return {
+                'available': False,
+                'reason': f'Room {room_id} not found'
+            }
+        
+        if not room.is_available():
+            return {
+                'available': False,
+                'reason': f'Room {room.room_number} is not available (status: {room.status})'
+            }
+        
+        return {
+            'available': True,
+            'room_number': room.room_number,
+            'room_type': room.type.value if hasattr(room.type, 'value') else str(room.type)
+        }
+
     def get_admission_statistics(self) -> dict:
         """
         Get admission statistics for dashboard.

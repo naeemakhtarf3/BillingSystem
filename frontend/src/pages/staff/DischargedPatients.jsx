@@ -19,7 +19,9 @@ import {
   TableHead,
   TableRow,
   TablePagination,
-  Avatar
+  Avatar,
+  TextField,
+  InputAdornment
 } from '@mui/material';
 import {
   People as PeopleIcon,
@@ -30,44 +32,74 @@ import {
   FilterList as FilterIcon,
   Search as SearchIcon,
   Person as PersonIcon,
-  CalendarToday as CalendarIcon
+  CalendarToday as CalendarIcon,
+  Receipt as ReceiptIcon,
+  PersonRemove as DischargeIcon
 } from '@mui/icons-material';
-import { useAdmissionContext } from '../../contexts/AdmissionContext';
-import AdmissionDetails from './AdmissionDetails';
-import AdmissionSearch from './AdmissionSearch';
+import { AdmissionProvider, useAdmissionContext } from '../../contexts/AdmissionContext';
 
-const ActiveAdmissions = () => {
+const DischargedPatients = () => {
   const { 
-    activeAdmissions, 
+    fetchDischargedAdmissions,
     loading, 
-    error, 
-    fetchActiveAdmissions,
-    getAdmissionStatistics,
-    dischargePatient
+    error
   } = useAdmissionContext();
   
+  const [dischargedAdmissions, setDischargedAdmissions] = useState([]);
   const [statistics, setStatistics] = useState(null);
-  const [selectedAdmission, setSelectedAdmission] = useState(null);
-  const [showFilters, setShowFilters] = useState(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    fetchActiveAdmissions();
+    loadDischargedAdmissions();
     loadStatistics();
   }, []);
 
+  const loadDischargedAdmissions = async () => {
+    try {
+      const response = await fetchDischargedAdmissions();
+      setDischargedAdmissions(response.admissions || response);
+    } catch (err) {
+      console.error('Failed to load discharged admissions:', err);
+    }
+  };
+
   const loadStatistics = async () => {
     try {
-      const stats = await getAdmissionStatistics();
-      setStatistics(stats);
+      // Calculate statistics from discharged admissions
+      const totalDischarged = dischargedAdmissions.length;
+      const totalRevenue = dischargedAdmissions.reduce((sum, admission) => {
+        // This would come from billing data in a real implementation
+        return sum + (admission.room?.daily_rate_cents || 0);
+      }, 0);
+      
+      setStatistics({
+        total_discharged: totalDischarged,
+        total_revenue_cents: totalRevenue,
+        average_stay_days: calculateAverageStayDays()
+      });
     } catch (err) {
       console.error('Failed to load statistics:', err);
     }
   };
 
+  const calculateAverageStayDays = () => {
+    if (dischargedAdmissions.length === 0) return 0;
+    
+    const totalDays = dischargedAdmissions.reduce((sum, admission) => {
+      if (admission.discharge_date && admission.admission_date) {
+        const duration = new Date(admission.discharge_date) - new Date(admission.admission_date);
+        return sum + (duration / (1000 * 60 * 60 * 24));
+      }
+      return sum;
+    }, 0);
+    
+    return totalDays / dischargedAdmissions.length;
+  };
+
   const handleRefresh = () => {
-    fetchActiveAdmissions();
+    loadDischargedAdmissions();
     loadStatistics();
   };
 
@@ -80,43 +112,14 @@ const ActiveAdmissions = () => {
     setPage(0);
   };
 
-  const handleAdmissionSelect = (admission) => {
-    setSelectedAdmission(admission);
-  };
-
-  const handleDischargePatient = async (admission) => {
-    console.log('inside handleDischargePatient parent', admission);
-    
-    try {
-      // Call the discharge API with current date/time
-      const dischargeData = {
-        discharge_date: new Date().toISOString(),
-        discharge_reason: 'recovery', // Default reason
-        discharge_notes: 'Patient discharged from active admissions list'
-      };
-      
-      const result = await dischargePatient(admission.id, dischargeData);
-      console.log('Discharge successful:', result);
-      
-      // Refresh the active admissions list
-      await fetchActiveAdmissions();
-      
-      // Show success message or redirect to discharge list
-      alert('Patient discharged successfully!');
-      
-    } catch (error) {
-      console.error('Discharge failed:', error);
-      alert('Failed to discharge patient: ' + error.message);
-    }
-  };
   const formatDate = (dateString) => {
     return new Date(dateString).toLocaleString();
   };
 
-  const formatDuration = (admissionDate) => {
-    const now = new Date();
+  const formatDuration = (admissionDate, dischargeDate) => {
     const admission = new Date(admissionDate);
-    const diffMs = now - admission;
+    const discharge = new Date(dischargeDate);
+    const diffMs = discharge - admission;
     const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
     const diffDays = Math.floor(diffHours / 24);
     
@@ -150,7 +153,38 @@ const ActiveAdmissions = () => {
     }
   };
 
-  if (loading && !activeAdmissions.length) {
+  const getDischargeReasonColor = (reason) => {
+    switch (reason) {
+      case 'recovery':
+        return 'success';
+      case 'transfer':
+        return 'info';
+      case 'patient_request':
+        return 'warning';
+      case 'medical_necessity':
+        return 'error';
+      case 'other':
+        return 'default';
+      default:
+        return 'default';
+    }
+  };
+
+  const formatCurrency = (cents) => {
+    return `$${(cents / 100).toFixed(2)}`;
+  };
+
+  // Filter admissions based on search term
+  const filteredAdmissions = dischargedAdmissions.filter(admission => {
+    const searchLower = searchTerm.toLowerCase();
+    return (
+      admission.patient_id.toLowerCase().includes(searchLower) ||
+      admission.room?.room_number?.toLowerCase().includes(searchLower) ||
+      admission.discharge_reason?.toLowerCase().includes(searchLower)
+    );
+  });
+
+  if (loading && !dischargedAdmissions.length) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
         <CircularProgress />
@@ -161,7 +195,7 @@ const ActiveAdmissions = () => {
   if (error) {
     return (
       <Alert severity="error" sx={{ mb: 2 }}>
-        Error loading active admissions: {error}
+        Error loading discharged patients: {error}
       </Alert>
     );
   }
@@ -171,17 +205,12 @@ const ActiveAdmissions = () => {
       {/* Header */}
       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
         <Typography variant="h4" component="h1" gutterBottom>
-          Active Admissions
+          Discharged Patients
         </Typography>
         <Box display="flex" gap={1}>
           <Tooltip title="Refresh">
             <IconButton onClick={handleRefresh} disabled={loading}>
               <RefreshIcon />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Toggle Filters">
-            <IconButton onClick={() => setShowFilters(!showFilters)}>
-              <FilterIcon />
             </IconButton>
           </Tooltip>
         </Box>
@@ -190,57 +219,43 @@ const ActiveAdmissions = () => {
       {/* Statistics Cards */}
       {statistics && (
         <Grid container spacing={3} sx={{ mb: 3 }}>
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid item xs={12} sm={6} md={4}>
             <Card>
               <CardContent>
                 <Box display="flex" alignItems="center" gap={1}>
                   <PeopleIcon color="primary" />
-                  <Typography variant="h6">Active Admissions</Typography>
+                  <Typography variant="h6">Total Discharged</Typography>
                 </Box>
                 <Typography variant="h4" color="primary">
-                  {statistics.active_admissions}
+                  {statistics.total_discharged}
                 </Typography>
               </CardContent>
             </Card>
           </Grid>
           
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid item xs={12} sm={6} md={4}>
             <Card>
               <CardContent>
                 <Box display="flex" alignItems="center" gap={1}>
                   <TrendingUpIcon color="success" />
-                  <Typography variant="h6">Total Admissions</Typography>
+                  <Typography variant="h6">Total Revenue</Typography>
                 </Box>
                 <Typography variant="h4" color="success.main">
-                  {statistics.total_admissions}
+                  {formatCurrency(statistics.total_revenue_cents)}
                 </Typography>
               </CardContent>
             </Card>
           </Grid>
           
-          <Grid item xs={12} sm={6} md={3}>
+          <Grid item xs={12} sm={6} md={4}>
             <Card>
               <CardContent>
                 <Box display="flex" alignItems="center" gap={1}>
                   <TimeIcon color="info" />
-                  <Typography variant="h6">Avg. Length of Stay</Typography>
+                  <Typography variant="h6">Avg. Stay Duration</Typography>
                 </Box>
                 <Typography variant="h4" color="info.main">
-                  {statistics.average_length_of_stay_days?.toFixed(1)}d
-                </Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-          
-          <Grid item xs={12} sm={6} md={3}>
-            <Card>
-              <CardContent>
-                <Box display="flex" alignItems="center" gap={1}>
-                  <CalendarIcon color="warning" />
-                  <Typography variant="h6">Recent (7 days)</Typography>
-                </Box>
-                <Typography variant="h4" color="warning.main">
-                  {statistics.recent_admissions_7_days}
+                  {statistics.average_stay_days?.toFixed(1)}d
                 </Typography>
               </CardContent>
             </Card>
@@ -248,45 +263,28 @@ const ActiveAdmissions = () => {
         </Grid>
       )}
 
-      {/* Room Type Breakdown */}
-      {statistics && statistics.room_type_breakdown && (
-        <Paper sx={{ p: 2, mb: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            Active Admissions by Room Type
-          </Typography>
-          <Box display="flex" gap={1} flexWrap="wrap">
-            {Object.entries(statistics.room_type_breakdown).map(([type, count]) => (
-              <Chip
-                key={type}
-                label={`${type.toUpperCase()}: ${count}`}
-                color={getRoomTypeColor(type)}
-                variant="outlined"
-              />
-            ))}
-          </Box>
-        </Paper>
-      )}
+      {/* Search */}
+      <Paper sx={{ p: 2, mb: 3 }}>
+        <TextField
+          fullWidth
+          placeholder="Search by patient ID, room number, or discharge reason..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon />
+              </InputAdornment>
+            ),
+          }}
+        />
+      </Paper>
 
-      {/* Filters and Search */}
-      {showFilters && (
-        <Paper sx={{ p: 2, mb: 3 }}>
-          <Typography variant="h6" gutterBottom>
-            Filters & Search
-          </Typography>
-          <AdmissionSearch 
-            onSearch={(filters) => {
-              console.log('Search filters:', filters);
-              // Implement search functionality
-            }}
-          />
-        </Paper>
-      )}
-
-      {/* Admissions Table */}
+      {/* Discharged Patients Table */}
       <Card>
         <CardContent>
           <Typography variant="h6" gutterBottom>
-            Active Admissions ({activeAdmissions.length})
+            Discharged Patients ({filteredAdmissions.length})
           </Typography>
           
           <TableContainer>
@@ -296,21 +294,18 @@ const ActiveAdmissions = () => {
                   <TableCell>Patient</TableCell>
                   <TableCell>Room</TableCell>
                   <TableCell>Admission Date</TableCell>
+                  <TableCell>Discharge Date</TableCell>
                   <TableCell>Duration</TableCell>
+                  <TableCell>Discharge Reason</TableCell>
                   <TableCell>Status</TableCell>
-                  <TableCell>Actions</TableCell>
+                  <TableCell>Invoice</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
-                {activeAdmissions
+                {filteredAdmissions
                   .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
                   .map((admission) => (
-                    <TableRow 
-                      key={admission.id}
-                      hover
-                      onClick={() => handleAdmissionSelect(admission)}
-                      sx={{ cursor: 'pointer' }}
-                    >
+                    <TableRow key={admission.id} hover>
                       <TableCell>
                         <Box display="flex" alignItems="center" gap={1}>
                           <Avatar sx={{ width: 32, height: 32 }}>
@@ -349,8 +344,20 @@ const ActiveAdmissions = () => {
                       </TableCell>
                       <TableCell>
                         <Typography variant="body2">
-                          {formatDuration(admission.admission_date)}
+                          {formatDate(admission.discharge_date)}
                         </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">
+                          {formatDuration(admission.admission_date, admission.discharge_date)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          label={admission.discharge_reason?.toUpperCase() || 'UNKNOWN'}
+                          color={getDischargeReasonColor(admission.discharge_reason)}
+                          size="small"
+                        />
                       </TableCell>
                       <TableCell>
                         <Chip
@@ -360,16 +367,23 @@ const ActiveAdmissions = () => {
                         />
                       </TableCell>
                       <TableCell>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleAdmissionSelect(admission);
-                          }}
-                        >
-                          View Details
-                        </Button>
+                        {admission.invoice_id ? (
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            startIcon={<ReceiptIcon />}
+                            onClick={() => {
+                              // Navigate to invoice or open in new tab
+                              window.open(`/invoices/${admission.invoice_id}`, '_blank');
+                            }}
+                          >
+                            View Invoice
+                          </Button>
+                        ) : (
+                          <Typography variant="caption" color="text.secondary">
+                            No Invoice
+                          </Typography>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))}
@@ -380,7 +394,7 @@ const ActiveAdmissions = () => {
           <TablePagination
             rowsPerPageOptions={[5, 10, 25]}
             component="div"
-            count={activeAdmissions.length}
+            count={filteredAdmissions.length}
             rowsPerPage={rowsPerPage}
             page={page}
             onPageChange={handleChangePage}
@@ -388,18 +402,16 @@ const ActiveAdmissions = () => {
           />
         </CardContent>
       </Card>
-
-      {/* Admission Details Dialog */}
-      {selectedAdmission && (
-        <AdmissionDetails
-          admission={selectedAdmission}
-          open={!!selectedAdmission}
-          onClose={() => setSelectedAdmission(null)}
-          handleDischargePatient={handleDischargePatient}
-        />
-      )}
     </Box>
   );
 };
 
-export default ActiveAdmissions;
+const DischargedPatientsPage = () => {
+  return (
+    <AdmissionProvider>
+      <DischargedPatients />
+    </AdmissionProvider>
+  );
+};
+
+export default DischargedPatientsPage;

@@ -29,12 +29,7 @@ logging.getLogger("uvicorn.error").info(f"Resolved DATABASE_URL: {settings.DATAB
 # Set up CORS with security headers
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",  # Vite development server
-        "http://localhost:3000", 
-        "http://localhost:4173",  # Vite preview server
-        "https://clinic-billing.com"
-    ],
+    allow_origins=["*"],  # Allow all origins
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],

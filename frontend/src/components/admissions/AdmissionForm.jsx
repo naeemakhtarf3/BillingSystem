@@ -14,7 +14,8 @@ import {
   Alert,
   CircularProgress,
   Paper,
-  Divider
+  Divider,
+  Snackbar
 } from '@mui/material';
 import {
   PersonAdd as PersonAddIcon,
@@ -27,23 +28,23 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { useRoomContext } from '../../contexts/RoomContext';
 import { useAdmissionContext } from '../../contexts/AdmissionContext';
+import patientService from '../../services/patientApi';
+import authService from '../../services/authApi';
 
 const schema = yup.object({
   patient_id: yup
-    .number()
+    .string()
     .required('Patient is required')
-    .positive('Patient ID must be positive')
-    .integer('Patient ID must be an integer'),
+    .uuid('Patient ID must be a valid UUID'),
   room_id: yup
     .number()
     .required('Room is required')
     .positive('Room ID must be positive')
     .integer('Room ID must be an integer'),
   staff_id: yup
-    .number()
+    .string()
     .required('Staff member is required')
-    .positive('Staff ID must be positive')
-    .integer('Staff ID must be an integer'),
+    .uuid('Staff ID must be a valid UUID'),
   admission_date: yup
     .date()
     .required('Admission date is required')
@@ -58,7 +59,7 @@ const AdmissionForm = ({ onSuccess, onCancel }) => {
   const [staff, setStaff] = useState([]);
   const [availableRooms, setAvailableRooms] = useState([]);
   const [error, setError2] = useState(null);
-
+ 
   const {
     control,
     handleSubmit,
@@ -79,25 +80,37 @@ const AdmissionForm = ({ onSuccess, onCancel }) => {
 
   useEffect(() => {
     fetchRooms({ available_only: true });
-    // TODO: Fetch patients and staff from API
-    setPatients([
-      { id: 1, name: 'John Doe', date_of_birth: '1990-01-01', status: 'active', outstanding_balance: 0 },
-      { id: 2, name: 'Jane Smith', date_of_birth: '1985-05-15', status: 'active', outstanding_balance: 0 },
-      { id: 3, name: 'Bob Johnson', date_of_birth: '1978-12-03', status: 'active', outstanding_balance: 15000 },
-      { id: 4, name: 'Alice Brown', date_of_birth: '1992-07-22', status: 'active', outstanding_balance: 0 },
-      { id: 5, name: 'Charlie Wilson', date_of_birth: '1988-03-14', status: 'inactive', outstanding_balance: 0 }
-    ]);
-    setStaff([
-      { id: 1, name: 'Dr. Smith', role: 'doctor', status: 'active', shift_status: 'on_duty' },
-      { id: 2, name: 'Nurse Johnson', role: 'nurse', status: 'active', shift_status: 'on_duty' },
-      { id: 3, name: 'Dr. Williams', role: 'doctor', status: 'active', shift_status: 'on_duty' },
-      { id: 4, name: 'Nurse Davis', role: 'nurse', status: 'active', shift_status: 'off_duty' },
-      { id: 5, name: 'Admin User', role: 'admin', status: 'active', shift_status: 'on_duty' }
-    ]);
+    // Fetch patients from API
+    const fetchPatients = async () => {
+      try {
+        const patientsData = await patientService.getPatients();
+        setPatients(patientsData);
+      } catch (error) {
+        console.error('Failed to fetch patients:', error);
+        setError('Failed to load patients. Please try again.');
+      }
+    };
+    fetchPatients();
+
+    // Fetch staff from API
+    const fetchStaff = async () => {
+      try {
+        const staffData = await authService.getStaff();
+        console.log(staffData);
+        
+        setStaff(staffData);
+      } catch (error) {
+        console.error('Failed to fetch staff:', error);
+        setError('Failed to load staff. Please try again.');
+      }
+    };
+    fetchStaff();
   }, []);
 
   useEffect(() => {
-    setAvailableRooms(rooms.filter(room => room.status === 'available'));
+    setAvailableRooms(rooms.filter(room => room.status.toLowerCase() === 'available'));
+    
+    
   }, [rooms]);
 
   const onSubmit = async (data) => {
@@ -136,14 +149,15 @@ const AdmissionForm = ({ onSuccess, onCancel }) => {
       if (onSuccess) {
         onSuccess(result);
       }
+      else {        // Reset form after successful submission
+        console.log('inside else', result);
+        
+      }
     } catch (err) {
+      console.log('err', err.message);
+      
       const errorMessage = err.message || 'Failed to create admission';
       setError(errorMessage);
-      
-      // Set specific field errors if available
-      if (err.field) {
-        setError(err.field, { type: 'manual', message: errorMessage });
-      }
     }
   };
 
@@ -200,7 +214,6 @@ const AdmissionForm = ({ onSuccess, onCancel }) => {
                       startAdornment={<PersonIcon />}
                     >
                       {patients
-                        .filter(patient => patient.status === 'active')
                         .map((patient) => (
                           <MenuItem key={patient.id} value={patient.id}>
                             <Box display="flex" flexDirection="column">
@@ -208,12 +221,7 @@ const AdmissionForm = ({ onSuccess, onCancel }) => {
                                 {patient.name}
                               </Typography>
                               <Typography variant="caption" color="text.secondary">
-                                DOB: {patient.date_of_birth}
-                                {patient.outstanding_balance > 0 && (
-                                  <span style={{ color: 'orange', marginLeft: '8px' }}>
-                                    (Outstanding: ${(patient.outstanding_balance / 100).toFixed(2)})
-                                  </span>
-                                )}
+                                DOB: {patient.dob}
                               </Typography>
                             </Box>
                           </MenuItem>
@@ -397,6 +405,8 @@ const AdmissionForm = ({ onSuccess, onCancel }) => {
           </Box>
         </form>
       </CardContent>
+      
+
     </Card>
   );
 };

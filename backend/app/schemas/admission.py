@@ -6,7 +6,7 @@ with proper validation and type safety.
 """
 
 from pydantic import BaseModel, Field, validator
-from typing import Optional
+from typing import Optional, Union
 from datetime import datetime
 from enum import Enum
 
@@ -16,15 +16,53 @@ from app.models.admission import AdmissionStatus
 class AdmissionBase(BaseModel):
     """Base admission schema with common fields."""
     room_id: int = Field(..., description="Room ID")
-    patient_id: int = Field(..., description="Patient ID")
-    staff_id: int = Field(..., description="Staff ID who processed admission")
+    patient_id: Union[int, str] = Field(..., description="Patient ID (integer or UUID string)")
+    staff_id: Union[int, str] = Field(..., description="Staff ID (integer or UUID string)")
     admission_date: datetime = Field(..., description="Admission date")
+    
+    @validator('patient_id')
+    def validate_patient_id(cls, v):
+        """Convert integer patient ID to UUID if needed."""
+        if isinstance(v, int):
+            from app.utils.id_mapping import get_patient_uuid_by_id
+            uuid = get_patient_uuid_by_id(v)
+            if not uuid:
+                raise ValueError(f'Patient ID {v} not found')
+            return uuid
+        return v
+    
+    @validator('staff_id')
+    def validate_staff_id(cls, v):
+        """Convert integer staff ID to UUID if needed."""
+        if isinstance(v, int):
+            from app.utils.id_mapping import get_staff_uuid_by_id
+            uuid = get_staff_uuid_by_id(v)
+            if not uuid:
+                raise ValueError(f'Staff ID {v} not found')
+            return uuid
+        return v
     
     @validator('admission_date')
     def validate_admission_date(cls, v):
-        """Validate admission date is not in the future."""
-        if v > datetime.now():
-            raise ValueError('Admission date cannot be in the future')
+        """Validate admission date is reasonable."""
+        from datetime import datetime, timezone, timedelta
+        
+        # Ensure both datetimes are timezone-aware for comparison
+        if v.tzinfo is None:
+            v = v.replace(tzinfo=timezone.utc)
+        
+        now = datetime.now(timezone.utc)
+        
+        # Allow dates up to 2 years in the future
+        max_future = now + timedelta(days=730)
+        if v > max_future:
+            raise ValueError('Admission date cannot be more than 2 years in the future')
+        
+        # Allow dates up to 10 years in the past
+        max_past = now - timedelta(days=3650)
+        if v < max_past:
+            raise ValueError('Admission date cannot be more than 10 years in the past')
+        
         return v
 
 
@@ -48,12 +86,42 @@ class AdmissionUpdate(BaseModel):
 class DischargeRequest(BaseModel):
     """Schema for discharge request."""
     discharge_date: datetime = Field(..., description="Discharge date")
+    discharge_reason: Optional[str] = Field(None, description="Reason for discharge")
+    discharge_notes: Optional[str] = Field(None, description="Additional discharge notes")
     
     @validator('discharge_date')
     def validate_discharge_date(cls, v):
-        """Validate discharge date is not in the future."""
-        if v > datetime.now():
-            raise ValueError('Discharge date cannot be in the future')
+        """Validate discharge date is reasonable."""
+        from datetime import timedelta
+        
+        now = datetime.now()
+        
+        # Allow discharge dates up to 7 days in the future (for planned discharges)
+        max_future = now + timedelta(days=7)
+        if v > max_future:
+            raise ValueError('Discharge date cannot be more than 7 days in the future')
+        
+        # Allow discharge dates up to 30 days in the past
+        max_past = now - timedelta(days=30)
+        if v < max_past:
+            raise ValueError('Discharge date cannot be more than 30 days in the past')
+        
+        return v
+    
+    @validator('discharge_reason')
+    def validate_discharge_reason(cls, v):
+        """Validate discharge reason if provided."""
+        if v:
+            valid_reasons = ['recovery', 'transfer', 'patient_request', 'medical_necessity', 'other']
+            if v not in valid_reasons:
+                raise ValueError(f"Invalid discharge reason. Must be one of: {', '.join(valid_reasons)}")
+        return v
+    
+    @validator('discharge_notes')
+    def validate_discharge_notes(cls, v):
+        """Validate discharge notes if provided."""
+        if v and len(v) > 500:
+            raise ValueError("Discharge notes cannot exceed 500 characters")
         return v
 
 
@@ -61,6 +129,8 @@ class AdmissionInDBBase(AdmissionBase):
     """Base schema for admission in database."""
     id: int
     discharge_date: Optional[datetime]
+    discharge_reason: Optional[str]
+    discharge_notes: Optional[str]
     invoice_id: Optional[int]
     status: AdmissionStatus
     created_at: datetime
@@ -86,7 +156,7 @@ class AdmissionWithDetails(Admission):
 class AdmissionFilter(BaseModel):
     """Schema for admission filtering."""
     status: Optional[AdmissionStatus] = Field(None, description="Filter by admission status")
-    patient_id: Optional[int] = Field(None, description="Filter by patient ID")
+    patient_id: Optional[str] = Field(None, description="Filter by patient ID")
     room_id: Optional[int] = Field(None, description="Filter by room ID")
     active_only: Optional[bool] = Field(False, description="Show only active admissions")
 
