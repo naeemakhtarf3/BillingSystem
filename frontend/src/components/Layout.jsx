@@ -28,7 +28,11 @@ import {
   Assessment,
   Logout,
   AccountCircle,
-  SmartToy
+  SmartToy,
+  Hotel,
+  PersonAdd,
+  PersonRemove,
+  Build
 } from '@mui/icons-material'
 import { useAuth } from '../contexts/AuthContext'
 import ClinicCopilotSidebar from './ClinicCopilotSidebar'
@@ -44,6 +48,12 @@ const menuItems = [
   { text: 'Audit Logs', icon: <Assessment />, path: '/staff/audit' },
   { text: 'Reports', icon: <Assessment />, path: '/staff/reports' },
   { text: 'AI Assistant', icon: <SmartToy />, path: '/staff/ai-chat' },
+  // Patient Admission and Discharge Workflow System
+  { text: 'Room Management', icon: <Hotel />, path: '/staff/rooms' },
+  { text: 'Admit Patient', icon: <PersonAdd />, path: '/staff/admissions/new' },
+  { text: 'Active Admissions', icon: <People />, path: '/staff/admissions' },
+  { text: 'Discharge Patient', icon: <PersonRemove />, path: '/staff/discharge' },
+  { text: 'Room Maintenance', icon: <Build />, path: '/staff/maintenance' },
 ]
 
 const Layout = () => {
