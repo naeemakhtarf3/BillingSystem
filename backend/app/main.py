@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
+from fastapi import WebSocket
 from app.core.config import settings
 import logging
 import os
@@ -9,6 +10,8 @@ from app.api.api_v1.api import api_router
 from app.db.session import Base, engine
 from app.agents.simple_clinic_agent import agent_app
 from app.services.etl_service import ETLService
+from app.core.websocket import websocket_endpoint
+from app.core.exceptions import setup_exception_handlers
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
@@ -23,21 +26,57 @@ app = FastAPI(
 # Log resolved DATABASE_URL on startup for easier debugging of relative paths
 logging.getLogger("uvicorn.error").info(f"Resolved DATABASE_URL: {settings.DATABASE_URL}")
 
-# Set up CORS
-# Allow all origins temporarily to fix CORS issues
+# Set up CORS with security headers
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=False,  # Must be False when allow_origins=["*"]
-    allow_methods=["*"],
+    allow_origins=["*"],  # Allow all origins
+    allow_credentials=True,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
     allow_headers=["*"],
+    expose_headers=["X-Process-Time", "X-Server-Info"]
 )
+
+# Add security headers middleware
+@app.middleware("http")
+async def add_security_headers(request, call_next):
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+    response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
+    return response
 
 # Include API router FIRST (before static files)
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
 # Mount agent application for AI communication
 app.mount("/agent", agent_app)
+
+# WebSocket endpoint for real-time updates
+@app.websocket("/ws")
+async def websocket_route(websocket: WebSocket):
+    await websocket_endpoint(websocket)
+
+# Setup exception handlers
+setup_exception_handlers(app)
+
+# Add global error handler for unhandled exceptions
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    """Global exception handler for unhandled exceptions."""
+    import logging
+    import traceback
+    
+    logger = logging.getLogger("uvicorn.error")
+    logger.error(f"Unhandled exception: {str(exc)}")
+    logger.error(f"Traceback: {traceback.format_exc()}")
+    
+    return {
+        "error": "Internal server error",
+        "detail": "An unexpected error occurred. Please try again later.",
+        "status_code": 500
+    }
 
 @app.on_event("startup")
 async def startup_event():

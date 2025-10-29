@@ -6,13 +6,19 @@ import {
   CardContent,
   Typography,
   CircularProgress,
-  Alert
+  Alert,
+  Button,
+  Paper
 } from '@mui/material'
 import {
   Receipt,
   Payment,
   People,
-  TrendingUp
+  TrendingUp,
+  Hotel,
+  PersonAdd,
+  PersonRemove,
+  Build
 } from '@mui/icons-material'
 import { api } from '../../services/api'
 
@@ -147,6 +153,72 @@ const Dashboard = () => {
           />
         </Grid>
       </Grid>
+
+      {/* Quick Access to Patient Admission and Discharge Workflow System */}
+      <Box mt={4}>
+        <Typography variant="h5" gutterBottom>
+          Patient Admission & Discharge System
+        </Typography>
+        <Paper sx={{ p: 3 }}>
+          <Grid container spacing={2}>
+            <Grid item xs={12} sm={6} md={3}>
+              <Button
+                variant="contained"
+                startIcon={<Hotel />}
+                fullWidth
+                href="/staff/rooms"
+                sx={{ height: 60 }}
+              >
+                Room Management
+              </Button>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Button
+                variant="contained"
+                startIcon={<PersonAdd />}
+                fullWidth
+                href="/staff/admissions/new"
+                sx={{ height: 60 }}
+              >
+                Admit Patient
+              </Button>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Button
+                variant="contained"
+                startIcon={<People />}
+                fullWidth
+                href="/staff/admissions"
+                sx={{ height: 60 }}
+              >
+                Active Admissions
+              </Button>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Button
+                variant="contained"
+                startIcon={<PersonRemove />}
+                fullWidth
+                href="/staff/discharge"
+                sx={{ height: 60 }}
+              >
+                Discharge Patient
+              </Button>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Button
+                variant="contained"
+                startIcon={<Build />}
+                fullWidth
+                href="/staff/maintenance"
+                sx={{ height: 60 }}
+              >
+                Room Maintenance
+              </Button>
+            </Grid>
+          </Grid>
+        </Paper>
+      </Box>
     </Box>
   )
 }

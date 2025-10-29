@@ -36,6 +36,7 @@ class Invoice(Base):
     staff = relationship("Staff")
     items = relationship("InvoiceItem", back_populates="invoice", cascade="all, delete-orphan")
     payments = relationship("Payment", back_populates="invoice")
+    admission = relationship("Admission", back_populates="invoice")
 
 class InvoiceItem(Base):
     __tablename__ = "invoice_items"

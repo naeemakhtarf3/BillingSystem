@@ -1,0 +1,525 @@
+openapi: 3.0.3
+info:
+  title: Patient Admission and Discharge API
+  description: API for managing patient admissions, room assignments, and discharge workflows
+  version: 1.0.0
+  contact:
+    name: Healthcare System API
+    email: support@healthcare.com
+
+servers:
+  - url: http://localhost:8000/api/v1
+    description: Development server
+  - url: https://api.healthcare.com/api/v1
+    description: Production server
+
+paths:
+  /rooms:
+    get:
+      summary: List all rooms
+      description: Retrieve all rooms with optional filtering by type and status
+      tags:
+        - Rooms
+      parameters:
+        - name: type
+          in: query
+          description: Filter by room type
+          required: false
+          schema:
+            type: string
+            enum: [standard, private, icu]
+        - name: status
+          in: query
+          description: Filter by room status
+          required: false
+          schema:
+            type: string
+            enum: [available, occupied, maintenance]
+      responses:
+        '200':
+          description: List of rooms
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rooms:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Room'
+                  total:
+                    type: integer
+                    description: Total number of rooms
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      summary: Create a new room
+      description: Add a new room to the system
+      tags:
+        - Rooms
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoomCreate'
+      responses:
+        '201':
+          description: Room created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '409':
+          description: Room number already exists
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /rooms/{room_id}:
+    get:
+      summary: Get room details
+      description: Retrieve details of a specific room
+      tags:
+        - Rooms
+      parameters:
+        - name: room_id
+          in: path
+          required: true
+          description: Room ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Room details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      summary: Update room
+      description: Update room details (status, rate, etc.)
+      tags:
+        - Rooms
+      parameters:
+        - name: room_id
+          in: path
+          required: true
+          description: Room ID
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RoomUpdate'
+      responses:
+        '200':
+          description: Room updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Room'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Cannot update room with active admission
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /admissions:
+    get:
+      summary: List admissions
+      description: Retrieve admissions with optional filtering by status
+      tags:
+        - Admissions
+      parameters:
+        - name: status
+          in: query
+          description: Filter by admission status
+          required: false
+          schema:
+            type: string
+            enum: [active, discharged]
+        - name: patient_id
+          in: query
+          description: Filter by patient ID
+          required: false
+          schema:
+            type: integer
+        - name: room_id
+          in: query
+          description: Filter by room ID
+          required: false
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: List of admissions
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  admissions:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/Admission'
+                  total:
+                    type: integer
+                    description: Total number of admissions
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    post:
+      summary: Admit a patient
+      description: Create a new admission for a patient
+      tags:
+        - Admissions
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdmissionCreate'
+      responses:
+        '201':
+          description: Patient admitted successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Admission'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          description: Patient, room, or staff not found
+        '409':
+          description: Room not available or patient already admitted
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /admissions/{admission_id}:
+    get:
+      summary: Get admission details
+      description: Retrieve details of a specific admission
+      tags:
+        - Admissions
+      parameters:
+        - name: admission_id
+          in: path
+          required: true
+          description: Admission ID
+          schema:
+            type: integer
+      responses:
+        '200':
+          description: Admission details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Admission'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+    put:
+      summary: Update admission
+      description: Update admission details (primarily for discharge)
+      tags:
+        - Admissions
+      parameters:
+        - name: admission_id
+          in: path
+          required: true
+          description: Admission ID
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AdmissionUpdate'
+      responses:
+        '200':
+          description: Admission updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Admission'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Cannot discharge already discharged patient
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+  /admissions/{admission_id}/discharge:
+    post:
+      summary: Discharge a patient
+      description: Discharge a patient and generate billing
+      tags:
+        - Admissions
+      parameters:
+        - name: admission_id
+          in: path
+          required: true
+          description: Admission ID
+          schema:
+            type: integer
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DischargeRequest'
+      responses:
+        '200':
+          description: Patient discharged successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DischargeResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Patient already discharged
+        '500':
+          $ref: '#/components/responses/InternalServerError'
+
+components:
+  schemas:
+    Room:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Room ID
+        room_number:
+          type: string
+          description: Room number
+          example: "101A"
+        type:
+          type: string
+          enum: [standard, private, icu]
+          description: Room type
+        status:
+          type: string
+          enum: [available, occupied, maintenance]
+          description: Current room status
+        daily_rate_cents:
+          type: integer
+          description: Daily rate in cents
+          example: 15000
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+
+    RoomCreate:
+      type: object
+      required:
+        - room_number
+        - type
+        - daily_rate_cents
+      properties:
+        room_number:
+          type: string
+          description: Room number
+          example: "101A"
+        type:
+          type: string
+          enum: [standard, private, icu]
+          description: Room type
+        daily_rate_cents:
+          type: integer
+          minimum: 1
+          description: Daily rate in cents
+          example: 15000
+
+    RoomUpdate:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [available, occupied, maintenance]
+          description: New room status
+        daily_rate_cents:
+          type: integer
+          minimum: 1
+          description: New daily rate in cents
+
+    Admission:
+      type: object
+      properties:
+        id:
+          type: integer
+          description: Admission ID
+        room_id:
+          type: integer
+          description: Room ID
+        patient_id:
+          type: integer
+          description: Patient ID
+        staff_id:
+          type: integer
+          description: Staff ID who processed admission
+        admission_date:
+          type: string
+          format: date-time
+          description: Admission date
+        discharge_date:
+          type: string
+          format: date-time
+          nullable: true
+          description: Discharge date
+        invoice_id:
+          type: integer
+          nullable: true
+          description: Associated invoice ID
+        status:
+          type: string
+          enum: [active, discharged]
+          description: Admission status
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+
+    AdmissionCreate:
+      type: object
+      required:
+        - room_id
+        - patient_id
+        - staff_id
+        - admission_date
+      properties:
+        room_id:
+          type: integer
+          description: Room ID
+        patient_id:
+          type: integer
+          description: Patient ID
+        staff_id:
+          type: integer
+          description: Staff ID processing admission
+        admission_date:
+          type: string
+          format: date-time
+          description: Admission date
+
+    AdmissionUpdate:
+      type: object
+      properties:
+        discharge_date:
+          type: string
+          format: date-time
+          description: Discharge date
+
+    DischargeRequest:
+      type: object
+      required:
+        - discharge_date
+      properties:
+        discharge_date:
+          type: string
+          format: date-time
+          description: Discharge date
+
+    DischargeResponse:
+      type: object
+      properties:
+        admission:
+          $ref: '#/components/schemas/Admission'
+        invoice:
+          type: object
+          properties:
+            id:
+              type: integer
+              description: Invoice ID
+            total_amount_cents:
+              type: integer
+              description: Total amount in cents
+            billing_summary:
+              type: object
+              properties:
+                daily_rate_cents:
+                  type: integer
+                  description: Daily rate in cents
+                days_stayed:
+                  type: number
+                  description: Number of days stayed
+                total_charges_cents:
+                  type: integer
+                  description: Total charges in cents
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error message
+        details:
+          type: string
+          description: Additional error details
+        code:
+          type: string
+          description: Error code
+
+  responses:
+    BadRequest:
+      description: Bad request
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    InternalServerError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+security:
+  - BearerAuth: []
