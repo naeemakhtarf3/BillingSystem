@@ -28,19 +28,33 @@ import {
 import { useRoomContext } from '../../contexts/RoomContext';
 
 const RoomList = ({ filters = {}, onRoomSelect }) => {
-  const { rooms, loading, error, fetchRooms } = useRoomContext();
+  const { rooms, loading, error } = useRoomContext();
   const [filteredRooms, setFilteredRooms] = useState([]);
 
-  useEffect(() => {
-    fetchRooms(filters);
-  }, [filters.type, filters.status, filters.available_only]);
+  // Remove duplicate fetchRooms call - RoomDashboard already handles fetching
+  // RoomList should only display rooms that are already fetched
 
   useEffect(() => {
-    setFilteredRooms(rooms);
-  }, [rooms]);
+    // Filter rooms based on the filters prop
+    let filtered = rooms;
+    
+    if (filters.type) {
+      filtered = filtered.filter(room => room.type?.toLowerCase() === filters.type?.toLowerCase());
+    }
+    
+    if (filters.status) {
+      filtered = filtered.filter(room => room.status?.toLowerCase() === filters.status?.toLowerCase());
+    }
+    
+    if (filters.available_only) {
+      filtered = filtered.filter(room => room.status?.toLowerCase() === 'available');
+    }
+    
+    setFilteredRooms(filtered);
+  }, [rooms, filters.type, filters.status, filters.available_only]);
 
   const getStatusIcon = (status) => {
-    switch (status) {
+    switch (status?.toLowerCase()) {
       case 'available':
         return <AvailableIcon color="success" />;
       case 'occupied':
@@ -53,7 +67,7 @@ const RoomList = ({ filters = {}, onRoomSelect }) => {
   };
 
   const getStatusColor = (status) => {
-    switch (status) {
+    switch (status?.toLowerCase()) {
       case 'available':
         return 'success';
       case 'occupied':
@@ -66,7 +80,7 @@ const RoomList = ({ filters = {}, onRoomSelect }) => {
   };
 
   const getTypeColor = (type) => {
-    switch (type) {
+    switch (type?.toLowerCase()) {
       case 'icu':
         return 'error';
       case 'private':

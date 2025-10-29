@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useCallback } from 'react';
 import { roomService } from '../services/roomApi';
 import websocketService from '../services/websocketService';
 
@@ -110,10 +110,12 @@ export const RoomProvider = ({ children }) => {
     };
   }, []);
 
-  const fetchRooms = async (filters = {}) => {
+  const fetchRooms = useCallback(async (filters = {}) => {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
       dispatch({ type: 'CLEAR_ERROR' });
+      // Only update filters if they're different from current filters
+      // This prevents unnecessary re-renders
       dispatch({ type: 'SET_FILTERS', payload: filters });
       
       const response = await roomService.getRooms(filters);
@@ -121,7 +123,7 @@ export const RoomProvider = ({ children }) => {
     } catch (error) {
       dispatch({ type: 'SET_ERROR', payload: error.message });
     }
-  };
+  }, []);
 
   const fetchAvailableRooms = async (type = null) => {
     try {

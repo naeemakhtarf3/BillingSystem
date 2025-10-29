@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Box,
   Grid,
@@ -44,6 +44,7 @@ const RoomDashboard = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [statistics, setStatistics] = useState(null);
+  const prevFiltersRef = useRef(null);
 
   const loadStatistics = useCallback(async () => {
     try {
@@ -51,9 +52,9 @@ const RoomDashboard = () => {
       // For now, calculate from current rooms
       const stats = {
         total_rooms: rooms.length,
-        available_rooms: rooms.filter(r => r.status === 'available').length,
-        occupied_rooms: rooms.filter(r => r.status === 'occupied').length,
-        maintenance_rooms: rooms.filter(r => r.status === 'maintenance').length,
+        available_rooms: rooms.filter(r => r.status?.toLowerCase() === 'available').length,
+        occupied_rooms: rooms.filter(r => r.status?.toLowerCase() === 'occupied').length,
+        maintenance_rooms: rooms.filter(r => r.status?.toLowerCase() === 'maintenance').length,
         occupancy_rate: 0
       };
       
@@ -68,12 +69,22 @@ const RoomDashboard = () => {
   }, [rooms]);
 
   useEffect(() => {
-    fetchRooms(filters);
-  }, [filters.type, filters.status, filters.available_only]);
+    // Check if filters have actually changed
+    const filtersChanged = 
+      prevFiltersRef.current === null ||
+      prevFiltersRef.current.type !== filters.type ||
+      prevFiltersRef.current.status !== filters.status ||
+      prevFiltersRef.current.available_only !== filters.available_only;
+    
+    if (filtersChanged) {
+      prevFiltersRef.current = { ...filters };
+      fetchRooms(filters);
+    }
+  }, [filters.type, filters.status, filters.available_only, fetchRooms]);
 
   useEffect(() => {
     loadStatistics();
-  }, [rooms, loadStatistics]);
+  }, [rooms]);
 
   const handleFilterChange = (newFilters) => {
     setFilters(prev => ({ ...prev, ...newFilters }));

@@ -6,6 +6,7 @@ with billing linkage and proper status management.
 """
 
 from sqlalchemy import Column, Integer, String, DateTime, Enum, ForeignKey, Text
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import enum
@@ -48,7 +49,7 @@ class Admission(Base):
     discharge_date = Column(DateTime(timezone=True), nullable=True, index=True)
     discharge_reason = Column(String, nullable=True, index=True)
     discharge_notes = Column(Text, nullable=True)
-    invoice_id = Column(Integer, ForeignKey("invoices.id"), nullable=True, index=True)
+    invoice_id = Column(UUID(as_uuid=True), ForeignKey("invoices.id"), nullable=True, index=True)
     status = Column(Enum(AdmissionStatus), nullable=False, default=AdmissionStatus.ACTIVE, index=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)

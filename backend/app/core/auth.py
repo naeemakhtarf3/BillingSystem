@@ -9,7 +9,7 @@ from enum import Enum
 from typing import List, Optional
 from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-import jwt
+from jose import jwt
 from datetime import datetime, timedelta
 from app.core.config import settings
 from app.core.security import verify_token as security_verify_token
