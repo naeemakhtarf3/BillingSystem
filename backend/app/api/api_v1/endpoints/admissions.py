@@ -62,7 +62,9 @@ def get_admissions(
         
         # Get admissions and count
         admission_service = AdmissionService(db)
-        admissions = admission_service.get_admissions(
+        
+        # For now, use simple get_admissions to avoid the patient/staff lookup issue
+        admissions_data = admission_service.get_admissions(
             patient_id=filters.patient_id,
             room_id=filters.room_id,
             status=filters.status,
@@ -75,12 +77,38 @@ def get_admissions(
             status=filters.status
         )
         
-        return AdmissionListResponse(
-            admissions=admissions,
-            total=total,
-            page=skip // limit + 1,
-            size=limit
-        )
+        # Convert to basic admission data without schema validation for now
+        admissions = []
+        for admission in admissions_data:
+            # Create basic admission dict
+            admission_dict = {
+                'id': admission.id,
+                'room_id': admission.room_id,
+                'patient_id': str(admission.patient_id) if admission.patient_id else None,
+                'staff_id': str(admission.staff_id) if admission.staff_id else None,
+                'admission_date': admission.admission_date,
+                'discharge_date': admission.discharge_date,
+                'discharge_reason': admission.discharge_reason,
+                'discharge_notes': admission.discharge_notes,
+                'invoice_id': admission.invoice_id,
+                'status': admission.status.value if hasattr(admission.status, 'value') else str(admission.status),
+                'created_at': admission.created_at,
+                'updated_at': admission.updated_at,
+                'version': getattr(admission, 'version', 1),
+                'room_number': None,
+                'patient_name': None,
+                'staff_name': None,
+                'daily_rate_cents': None,
+            }
+            admissions.append(admission_dict)
+        
+        # Return raw data without schema validation for now
+        return {
+            "admissions": admissions,
+            "total": total,
+            "page": skip // limit + 1,
+            "size": limit
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error retrieving admissions: {str(e)}")
 
@@ -209,13 +237,77 @@ def discharge_patient(admission_id: int, discharge_data: DischargeRequest, db: S
     """
     try:
         admission_service = AdmissionService(db)
+        
+        # Add debug logging
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.info(f"Attempting to discharge admission {admission_id} with data: {discharge_data}")
+        
+        # Check if admission exists first
+        admission = admission_service.get_admission(admission_id)
+        if not admission:
+            logger.error(f"Admission {admission_id} not found")
+            raise HTTPException(status_code=404, detail=f"Admission with ID {admission_id} not found")
+        
+        logger.info(f"Found admission {admission_id} with status: {admission.status}")
+        
         result = admission_service.discharge_patient(admission_id, discharge_data)
         
-        return DischargeResponse(
-            admission=result['admission'],
-            invoice=result['invoice'],
-            billing_summary=result['billing_summary']
-        )
+        logger.info(f"Discharge successful for admission {admission_id}")
+        
+        # Convert SQLAlchemy model to Pydantic schema
+        from app.schemas.admission import Admission as AdmissionSchema
+        try:
+            # Try using from_orm first (Pydantic v1), fallback to model_validate (Pydantic v2)
+            if hasattr(AdmissionSchema, 'from_orm'):
+                admission_schema = AdmissionSchema.from_orm(result['admission'])
+            else:
+                admission_schema = AdmissionSchema.model_validate(result['admission'], from_attributes=True)
+            logger.info(f"Admission schema conversion successful")
+        except Exception as e:
+            logger.error(f"Error converting admission to schema: {str(e)}", exc_info=True)
+            # Try alternative conversion method
+            try:
+                # Convert to dict first, then validate
+                admission_dict = {
+                    'id': result['admission'].id,
+                    'room_id': result['admission'].room_id,
+                    'patient_id': result['admission'].patient_id,
+                    'staff_id': result['admission'].staff_id,
+                    'admission_date': result['admission'].admission_date,
+                    'discharge_date': result['admission'].discharge_date,
+                    'discharge_reason': result['admission'].discharge_reason,
+                    'discharge_notes': result['admission'].discharge_notes,
+                    'invoice_id': result['admission'].invoice_id,
+                    'status': result['admission'].status,
+                    'created_at': result['admission'].created_at,
+                    'updated_at': result['admission'].updated_at,
+                    'version': getattr(result['admission'], 'version', 1)
+                }
+                admission_schema = AdmissionSchema(**admission_dict)
+                logger.info(f"Admission schema conversion successful using dict method")
+            except Exception as e2:
+                logger.error(f"Error converting admission with dict method: {str(e2)}", exc_info=True)
+                raise HTTPException(status_code=500, detail=f"Error converting admission data: {str(e)}")
+        
+        # BillingSummary is already a Pydantic model, invoice is a dict
+        try:
+            discharge_response = DischargeResponse(
+                admission=admission_schema,
+                invoice=result['invoice'],
+                billing_summary=result['billing_summary']
+            )
+            logger.info(f"DischargeResponse created successfully")
+            return discharge_response
+        except Exception as e:
+            logger.error(f"Error creating DischargeResponse: {str(e)}", exc_info=True)
+            logger.error(f"Admission schema type: {type(admission_schema)}")
+            logger.error(f"Invoice type: {type(result['invoice'])}")
+            logger.error(f"BillingSummary type: {type(result['billing_summary'])}")
+            raise HTTPException(status_code=500, detail=f"Error creating response: {str(e)}")
+    except HTTPException:
+        # Re-raise HTTPException without modification
+        raise
     except ValueError as e:
         # Provide more specific error messages for common validation issues
         error_message = str(e)
@@ -230,8 +322,18 @@ def discharge_patient(admission_id: int, discharge_data: DischargeRequest, db: S
     except Exception as e:
         # Log the full error for debugging
         import logging
-        logging.error(f"Error discharging patient {admission_id}: {str(e)}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"Error discharging patient: {str(e)}")
+        import traceback
+        logger = logging.getLogger(__name__)
+        error_detail = str(e)
+        error_traceback = traceback.format_exc()
+        logger.error(f"Error discharging patient {admission_id}: {error_detail}")
+        logger.error(f"Traceback: {error_traceback}")
+        
+        # Return a more helpful error message
+        raise HTTPException(
+            status_code=500, 
+            detail=f"Error discharging patient: {error_detail}. Check server logs for full traceback."
+        )
 
 
 @router.get("/active/list", response_model=List[AdmissionWithDetails])

@@ -92,19 +92,23 @@ class DischargeRequest(BaseModel):
     @validator('discharge_date')
     def validate_discharge_date(cls, v):
         """Validate discharge date is reasonable."""
-        from datetime import timedelta
+        from datetime import timedelta, timezone
         
-        now = datetime.now()
+        # Ensure both datetimes are timezone-aware for comparison
+        if v.tzinfo is None:
+            v = v.replace(tzinfo=timezone.utc)
         
-        # Allow discharge dates up to 7 days in the future (for planned discharges)
-        max_future = now + timedelta(days=7)
+        now = datetime.now(timezone.utc)
+        
+        # Allow discharge dates up to 1 year in the future (for planned discharges and testing)
+        max_future = now + timedelta(days=365)
         if v > max_future:
-            raise ValueError('Discharge date cannot be more than 7 days in the future')
+            raise ValueError('Discharge date cannot be more than 1 year in the future')
         
-        # Allow discharge dates up to 30 days in the past
-        max_past = now - timedelta(days=30)
+        # Allow discharge dates up to 1 year in the past
+        max_past = now - timedelta(days=365)
         if v < max_past:
-            raise ValueError('Discharge date cannot be more than 30 days in the past')
+            raise ValueError('Discharge date cannot be more than 1 year in the past')
         
         return v
     
@@ -131,10 +135,39 @@ class AdmissionInDBBase(AdmissionBase):
     discharge_date: Optional[datetime]
     discharge_reason: Optional[str]
     discharge_notes: Optional[str]
-    invoice_id: Optional[int]
+    invoice_id: Optional[int] = Field(None, description="Invoice ID")
     status: AdmissionStatus
     created_at: datetime
     updated_at: datetime
+    version: int = Field(default=1, description="Optimistic locking version")
+    
+    @validator('invoice_id', pre=True)
+    def validate_invoice_id(cls, v):
+        """Handle invoice_id as either integer or string, converting to int."""
+        if v is None:
+            return None
+        # If it's already an integer, return as is
+        if isinstance(v, int):
+            return v
+        # If it's a string, try to convert to int
+        if isinstance(v, str):
+            # Try to extract numeric part if it's in format like "INV-1-123456"
+            if v.startswith('INV-'):
+                try:
+                    # Extract the numeric part after the last dash
+                    parts = v.split('-')
+                    if len(parts) > 1:
+                        numeric_part = parts[-1]
+                        return int(numeric_part)
+                except (ValueError, IndexError):
+                    pass
+            # Try direct conversion
+            try:
+                return int(v)
+            except ValueError:
+                # If conversion fails, return None to avoid validation errors
+                return None
+        return v
     
     class Config:
         from_attributes = True

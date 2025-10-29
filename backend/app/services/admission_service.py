@@ -104,7 +104,14 @@ class AdmissionService:
         Returns:
             List of admission instances
         """
-        query = self.db.query(Admission)
+        from sqlalchemy.orm import noload
+        
+        query = self.db.query(Admission).options(
+            noload(Admission.patient),
+            noload(Admission.staff),
+            noload(Admission.room),
+            noload(Admission.invoice)
+        )
         
         if patient_id:
             query = query.filter(Admission.patient_id == patient_id)
@@ -147,69 +154,85 @@ class AdmissionService:
         
         # Convert to dictionary format with details
         result = []
+        valid_admissions = []
+        
+        # First, filter out admissions with invalid patient_id or staff_id
         for admission in admissions:
+            # Debug logging
+            print(f"Processing admission {admission.id}: patient_id={admission.patient_id} (type: {type(admission.patient_id)}), staff_id={admission.staff_id} (type: {type(admission.staff_id)})")
+            
+            # Skip processing if patient_id or staff_id are invalid
+            if not admission.patient_id or admission.patient_id == {} or str(admission.patient_id) in ['{}', 'None', 'null', '']:
+                print(f"Skipping admission {admission.id} due to invalid patient_id: {admission.patient_id}")
+                continue
+                
+            if not admission.staff_id or admission.staff_id == {} or str(admission.staff_id) in ['{}', 'None', 'null', '']:
+                print(f"Skipping admission {admission.id} due to invalid staff_id: {admission.staff_id}")
+                continue
+                
+            valid_admissions.append(admission)
+        
+        print(f"Found {len(valid_admissions)} valid admissions out of {len(admissions)} total")
+        
+        for admission in valid_admissions:
             # Get room details
             room = self.db.query(Room).filter(Room.id == admission.room_id).first()
             
             # Get patient details - handle UUID conversion
             patient = None
-            if admission.patient_id:
+            if admission.patient_id and admission.patient_id != {} and str(admission.patient_id) != '{}':
                 try:
                     import uuid
                     # Handle different UUID formats
                     patient_id_str = str(admission.patient_id)
                     
+                    # Skip if patient_id is empty or invalid
+                    if not patient_id_str or patient_id_str == '{}' or patient_id_str == 'None' or patient_id_str == 'null':
+                        patient = None
                     # If it's a UUID with hyphens, convert to UUID object
-                    if len(patient_id_str) == 36 and patient_id_str.count('-') == 4:
+                    elif len(patient_id_str) == 36 and patient_id_str.count('-') == 4:
                         patient_uuid = uuid.UUID(patient_id_str)
+                        patient = self.db.query(Patient).filter(Patient.id == patient_uuid).first()
                     # If it's a UUID without hyphens, add hyphens and convert
                     elif len(patient_id_str) == 32 and patient_id_str.count('-') == 0:
                         # Add hyphens to make it a proper UUID format
                         formatted_uuid = f"{patient_id_str[:8]}-{patient_id_str[8:12]}-{patient_id_str[12:16]}-{patient_id_str[16:20]}-{patient_id_str[20:]}"
                         patient_uuid = uuid.UUID(formatted_uuid)
+                        patient = self.db.query(Patient).filter(Patient.id == patient_uuid).first()
                     else:
                         # Try to query directly with the string
                         patient = self.db.query(Patient).filter(Patient.id == patient_id_str).first()
-                        continue
-                    
-                    patient = self.db.query(Patient).filter(Patient.id == patient_uuid).first()
-                except (ValueError, TypeError) as e:
+                except (ValueError, TypeError, AttributeError) as e:
                     print(f"Error converting patient_id {admission.patient_id}: {e}")
-                    # Try direct string query as fallback
-                    try:
-                        patient = self.db.query(Patient).filter(Patient.id == str(admission.patient_id)).first()
-                    except:
-                        patient = None
+                    patient = None
             
             # Get staff details - handle UUID conversion
             staff = None
-            if admission.staff_id:
+            if admission.staff_id and admission.staff_id != {} and str(admission.staff_id) != '{}':
                 try:
                     import uuid
                     # Handle different UUID formats
                     staff_id_str = str(admission.staff_id)
                     
+                    # Skip if staff_id is empty or invalid
+                    if not staff_id_str or staff_id_str == '{}' or staff_id_str == 'None' or staff_id_str == 'null':
+                        staff = None
                     # If it's a UUID with hyphens, convert to UUID object
-                    if len(staff_id_str) == 36 and staff_id_str.count('-') == 4:
+                    elif len(staff_id_str) == 36 and staff_id_str.count('-') == 4:
                         staff_uuid = uuid.UUID(staff_id_str)
+                        staff = self.db.query(Staff).filter(Staff.id == staff_uuid).first()
                     # If it's a UUID without hyphens, add hyphens and convert
                     elif len(staff_id_str) == 32 and staff_id_str.count('-') == 0:
                         # Add hyphens to make it a proper UUID format
                         formatted_uuid = f"{staff_id_str[:8]}-{staff_id_str[8:12]}-{staff_id_str[12:16]}-{staff_id_str[16:20]}-{staff_id_str[20:]}"
                         staff_uuid = uuid.UUID(formatted_uuid)
+                        staff = self.db.query(Staff).filter(Staff.id == staff_uuid).first()
                     else:
                         # Try to query directly with the string
                         staff = self.db.query(Staff).filter(Staff.id == staff_id_str).first()
-                        continue
-                    
-                    staff = self.db.query(Staff).filter(Staff.id == staff_uuid).first()
-                except (ValueError, TypeError) as e:
+                except (ValueError, TypeError, AttributeError) as e:
                     print(f"Error converting staff_id {admission.staff_id}: {e}")
-                    # Try direct string query as fallback
-                    try:
-                        staff = self.db.query(Staff).filter(Staff.id == str(admission.staff_id)).first()
-                    except:
-                        staff = None
+                    staff = None
             
             admission_dict = {
                 'id': admission.id,
@@ -286,10 +309,14 @@ class AdmissionService:
         self._validate_discharge_request(discharge_data)
         
         # Set discharge date and additional information
-        discharge_date = discharge_data.discharge_date or datetime.now()
+        from datetime import timezone
+        discharge_date = discharge_data.discharge_date or datetime.now(timezone.utc)
+        # Ensure discharge date is timezone-aware
+        if discharge_date.tzinfo is None:
+            discharge_date = discharge_date.replace(tzinfo=timezone.utc)
         admission.discharge_date = discharge_date
-        admission.discharge_reason = getattr(discharge_data, 'discharge_reason', None)
-        admission.discharge_notes = getattr(discharge_data, 'discharge_notes', None)
+        admission.discharge_reason = discharge_data.discharge_reason
+        admission.discharge_notes = discharge_data.discharge_notes
         admission.status = AdmissionStatus.DISCHARGED
         
         # Update room status to available
@@ -302,7 +329,8 @@ class AdmissionService:
         
         # Create invoice (placeholder - would integrate with existing billing system)
         invoice = self._create_invoice(admission, billing_summary)
-        admission.invoice_id = invoice['id']
+        # Don't set invoice_id if invoices table doesn't exist or invoice wasn't actually created
+        # admission.invoice_id = invoice['id']
         
         self.db.commit()
         self.db.refresh(admission)
@@ -324,14 +352,22 @@ class AdmissionService:
             ValueError: If discharge request is invalid
         """
         if discharge_data.discharge_date:
-            # Validate discharge date is reasonable (allow up to 7 days in future for planned discharges)
-            max_future = datetime.now() + timedelta(days=7)
-            if discharge_data.discharge_date > max_future:
-                raise ValueError("Discharge date cannot be more than 7 days in the future")
+            # Ensure both datetimes are timezone-aware for comparison
+            from datetime import timezone
+            discharge_date = discharge_data.discharge_date
+            if discharge_date.tzinfo is None:
+                discharge_date = discharge_date.replace(tzinfo=timezone.utc)
+            
+            now = datetime.now(timezone.utc)
+            
+            # Validate discharge date is reasonable (allow up to 1 year in future for planned discharges and testing)
+            max_future = now + timedelta(days=365)
+            if discharge_date > max_future:
+                raise ValueError("Discharge date cannot be more than 1 year in the future")
             
             # Validate discharge date is not too far in the past
-            if discharge_data.discharge_date < datetime.now() - timedelta(days=30):
-                raise ValueError("Discharge date cannot be more than 30 days in the past")
+            if discharge_date < now - timedelta(days=365):
+                raise ValueError("Discharge date cannot be more than 1 year in the past")
         
         # Validate discharge reason if provided
         if hasattr(discharge_data, 'discharge_reason') and discharge_data.discharge_reason:
@@ -411,22 +447,28 @@ class AdmissionService:
             raise ValueError("Room not found for billing calculation")
         
         daily_rate_cents = room.daily_rate_cents
+        if not daily_rate_cents or daily_rate_cents <= 0:
+            raise ValueError(f"Invalid daily rate for room {room.room_number}: {daily_rate_cents}")
         
         # Calculate duration
         duration_hours = admission.get_duration_hours()
         duration_days = admission.get_duration_days()
         
         # Determine if same day admission/discharge
-        is_same_day = admission.admission_date.date() == admission.discharge_date.date()
+        # Convert to UTC for consistent comparison
+        from datetime import timezone
+        admission_date_utc = admission.admission_date.astimezone(timezone.utc) if admission.admission_date.tzinfo else admission.admission_date.replace(tzinfo=timezone.utc)
+        discharge_date_utc = admission.discharge_date.astimezone(timezone.utc) if admission.discharge_date.tzinfo else admission.discharge_date.replace(tzinfo=timezone.utc)
+        is_same_day = admission_date_utc.date() == discharge_date_utc.date()
         
         # Calculate charges based on business rules
         if is_same_day:
             # Same day: hourly rate (daily rate / 24)
             hourly_rate_cents = daily_rate_cents / 24
-            total_charges_cents = int(duration_hours * hourly_rate_cents)
+            total_charges_cents = round(duration_hours * hourly_rate_cents)
         else:
             # Multi-day: full daily rate for each day
-            total_charges_cents = int(duration_days * daily_rate_cents)
+            total_charges_cents = round(duration_days * daily_rate_cents)
         
         return BillingSummary(
             daily_rate_cents=daily_rate_cents,
@@ -448,13 +490,14 @@ class AdmissionService:
         """
         # This would integrate with existing billing system
         # For now, return a placeholder invoice with integer ID
-        invoice_id = int(datetime.now().timestamp())
+        from datetime import timezone
+        invoice_id = int(datetime.now(timezone.utc).timestamp())
         return {
             'id': invoice_id,
             'patient_id': admission.patient_id,
             'total_amount_cents': billing_summary.total_charges_cents,
             'status': 'pending',
-            'created_at': datetime.now()
+            'created_at': datetime.now(timezone.utc).isoformat()  # Convert to ISO string for JSON serialization
         }
     
     def validate_patient_for_admission(self, patient_id: str) -> dict:

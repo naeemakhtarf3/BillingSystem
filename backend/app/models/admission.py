@@ -76,7 +76,17 @@ class Admission(Base):
         if not self.discharge_date:
             return 0.0
         
-        duration = self.discharge_date - self.admission_date
+        # Ensure both datetimes are timezone-aware for comparison
+        from datetime import timezone
+        discharge_date = self.discharge_date
+        admission_date = self.admission_date
+        
+        if discharge_date.tzinfo is None:
+            discharge_date = discharge_date.replace(tzinfo=timezone.utc)
+        if admission_date.tzinfo is None:
+            admission_date = admission_date.replace(tzinfo=timezone.utc)
+        
+        duration = discharge_date - admission_date
         return duration.total_seconds() / (24 * 3600)  # Convert to days
     
     def get_duration_hours(self) -> float:
@@ -84,5 +94,15 @@ class Admission(Base):
         if not self.discharge_date:
             return 0.0
         
-        duration = self.discharge_date - self.admission_date
+        # Ensure both datetimes are timezone-aware for comparison
+        from datetime import timezone
+        discharge_date = self.discharge_date
+        admission_date = self.admission_date
+        
+        if discharge_date.tzinfo is None:
+            discharge_date = discharge_date.replace(tzinfo=timezone.utc)
+        if admission_date.tzinfo is None:
+            admission_date = admission_date.replace(tzinfo=timezone.utc)
+        
+        duration = discharge_date - admission_date
         return duration.total_seconds() / 3600  # Convert to hours
